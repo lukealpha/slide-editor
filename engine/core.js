@@ -157,20 +157,118 @@
     list.style.top = list.dataset.introTop + 'px';
     void root.offsetHeight;
     root.classList.remove('qs-sec-notrans');
-    // 第一段结束时间 = 路线图开始时间 + 最后一行的错开 + 单行时长 + 短暂停顿
+    // 第二段在最后一行"停稳"时立即开始：单行回弹动画 620ms，在 87%（约 540ms）时与终点偏差已小于 1px
     const start = parseFloat(getComputedStyle(root).getPropertyValue('--sec-rows')) * 1000 || 0;
-    const settle = start + (list.children.length - 1) * 90 + 620 + 120;
-    root._secTimer = setTimeout(() => {
-      root.classList.remove('qs-sec-intro');
-      list.style.top = list.dataset.finalTop + 'px';
-    }, settle);
+    const settle = start + (list.children.length - 1) * 90 + 540;
+    root._secTimer = setTimeout(() => evolveSection(root), settle);
   };
   QS.finishSectionIntro = function (root) {
     clearTimeout(root._secTimer);
+    (root._secAnims || []).forEach((a) => a.cancel());
+    root._secAnims = [];
     const list = root.querySelector('.qs-rm');
     root.classList.remove('qs-sec-intro');
     if (list && list.dataset.finalTop !== undefined) list.style.top = list.dataset.finalTop + 'px';
   };
+
+  /* ---------- 第二段："绷紧的弹簧突然释放" ----------
+   * 弹簧在画面出现前就已压紧（不可见），第二段的第一帧就是释放：
+   *   线条：以极大初速度从 0 弹出，高速时被拉长变细；冲过终点后急刹（过冲短、压扁变粗），随后以松弛的弹簧来回晃几下停稳；
+   *   标题：同一瞬间从小号弹性放大（FLIP：字号立即变为最终值，用 transform 从原尺寸弹过去），冲过头再回弹；编号跟着跳一下；
+   *   其他行：被变大的当前章节推开，像波纹一样离得越远越晚动，各自带弹性；整个列表也弹性地移到最终位置；
+   *   副标题：晚一拍被"甩"出来。
+   * 所有运动由阻尼振子逐帧积分得到，采样成 Web Animations 关键帧。 */
+  function spring(o) {
+    // 阻尼分三段：释放时用 damping；第一次冲过终点后改用 brake 急刹（过冲短）；之后回到较轻的 damping 来回晃（振荡持久）
+    const w = 2 * Math.PI * o.freq, dt = 1 / 240, brake = o.brake === undefined ? o.damping : o.brake;
+    let x = o.x0 || 0, v = o.v0 || 0, phase = 0;
+    const out = [{ x, v, a: 0 }];
+    for (let t = dt; t < 3; t += dt) {
+      const a = -w * w * (x - 1) - 2 * (phase === 1 ? brake : o.damping) * w * v;
+      v += a * dt;
+      const px = x;
+      x += v * dt;
+      if (phase === 0 && px !== 1 && (px - 1) * (x - 1) <= 0) phase = 1;
+      else if (phase === 1 && v * (x - 1) <= 0) phase = 2;
+      out.push({ x, v, a });
+      if (t > 0.06 && Math.abs(x - 1) < 0.0005 && Math.abs(v) < 0.03) break;
+    }
+    out[out.length - 1] = { x: 1, v: 0, a: 0 };
+    return out;
+  }
+  /** 把采样（每 1/240 s）抽成约 120fps 的关键帧；map 把一个采样点变成 CSS 属性 */
+  function springFrames(samples, map) {
+    const n = Math.max(2, Math.round((samples.length - 1) / 2));
+    const frames = [];
+    for (let i = 0; i <= n; i++) frames.push(Object.assign({ offset: i / n }, map(samples[Math.round((i / n) * (samples.length - 1))], i / n)));
+    return { frames, duration: ((samples.length - 1) / 240) * 1000 };
+  }
+  function evolveSection(root) {
+    const list = root.querySelector('.qs-rm');
+    if (!list || !root.isConnected) return;
+    const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
+    const k = root.getBoundingClientRect().height / 720 || 1; // 画布缩放（FLIP 用未缩放坐标）
+    const row = rows[cur], title = row && row.querySelector('.t'), num = row && row.querySelector('.n');
+    const sub = row && row.querySelector('.s'), line = row && row.querySelector('.qs-rm-line');
+    // FIRST：第一段末的状态
+    const rel = (el, base) => { const a = el.getBoundingClientRect(), b = base.getBoundingClientRect(); return { x: (a.left - b.left) / k, y: (a.top - b.top) / k }; };
+    const firstRowY = rows.map((r) => r.offsetTop);
+    const firstTitle = title && rel(title, row), firstSize = title && parseFloat(getComputedStyle(title).fontSize);
+    // 切到最终状态（无过渡），LAST
+    root.classList.add('qs-sec-notrans');
+    root.classList.remove('qs-sec-intro');
+    list.style.top = list.dataset.finalTop + 'px';
+    void root.offsetHeight;
+    const lastRowY = rows.map((r) => r.offsetTop);
+    const lastTitle = title && rel(title, row), lastSize = title && parseFloat(getComputedStyle(title).fontSize);
+    const anims = (root._secAnims = []);
+    const play = (el, f, opt) => el && anims.push(el.animate(f.frames, Object.assign({ duration: f.duration, fill: 'both', easing: 'linear' }, opt)));
+
+    // 整个列表：从第一段的居中位置弹到最终位置
+    const dList = (+list.dataset.introTop || 0) - (+list.dataset.finalTop || 0);
+    if (dList) play(list, springFrames(spring({ freq: 3.5, damping: 0.4, v0: 0 }), (s) => ({ transform: `translateY(${(dList * (1 - s.x)).toFixed(2)}px)` })));
+
+    // 各行：被推开，像波纹一样按与当前章节的距离错开
+    rows.forEach((r, i) => {
+      const dy = firstRowY[i] - lastRowY[i];
+      if (Math.abs(dy) < 0.5) return;
+      play(r, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.5, v0: 3 }), (s) => ({ transform: `translateY(${(dy * (1 - s.x)).toFixed(2)}px)` })), { delay: Math.abs(i - cur) * 28 });
+    });
+
+    if (title) {
+      // 标题：字号已是最终值，用 transform 从第一段的尺寸和位置弹过去（左上角为原点）
+      const s0 = firstSize / lastSize, dx = firstTitle.x - lastTitle.x, dy = firstTitle.y - lastTitle.y;
+      title.style.transformOrigin = '0 0';
+      play(title, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.7, v0: 1 }), (s) => {
+        const p = 1 - s.x, sc = 1 - (1 - s0) * p;
+        return { transform: `translate(${(dx * p).toFixed(2)}px, ${(dy * p).toFixed(2)}px) scale(${sc.toFixed(4)})` };
+      }));
+      play(title, { frames: [{ color: '#a8a8a8' }, { color: getComputedStyle(title).color }], duration: 160 }, { easing: 'ease-out' });
+    }
+    if (num) {
+      num.style.display = 'inline-block';
+      num.style.transformOrigin = '0 70%';
+      play(num, springFrames(spring({ x0: 1, v0: 3.5, freq: 4.25, damping: 0.2 }), (s) => ({ transform: `scale(${(1 + (s.x - 1) * 0.9).toFixed(4)})` })));
+      play(num, { frames: [{ color: '#a8a8a8' }, { color: getComputedStyle(num).color }], duration: 140 }, { easing: 'ease-out' });
+    }
+    if (line) {
+      // 线条：极大初速度弹出；粗细随速度和加速度变化（快时拉细，急停时压扁）
+      const S = spring({ freq: 4.5, damping: 0.24, brake: 1.9, v0: 4 });
+      const vmax = Math.max(...S.map((q) => Math.abs(q.v))), amax = Math.max(...S.slice(4).map((q) => Math.abs(q.a))) || 1;
+      play(line, springFrames(S, (s) => {
+        const sp = Math.abs(s.v) / vmax, squash = (Math.abs(s.a) / amax) * (1 - sp);
+        const sy = Math.max(0.35, 1 - 0.6 * sp + 0.9 * squash);
+        return { transform: `scaleX(${Math.max(0, s.x).toFixed(4)}) scaleY(${sy.toFixed(3)})` };
+      }));
+    }
+    if (sub) {
+      play(sub, springFrames(spring({ freq: 4, damping: 0.3, v0: 0 }), (s, u) => ({
+        transform: `translateY(${(-22 * (1 - s.x)).toFixed(2)}px)`,
+        opacity: Math.min(1, u * 5).toFixed(3),
+      })), { delay: 50 });
+    }
+    root.classList.remove('qs-sec-notrans');
+  }
 
   /* ---------- 动画组件注册 ---------- */
   QS.animations = QS.animations || {};
@@ -424,7 +522,8 @@
         const on = i === cur;
         const li = list.appendChild(el('li', on ? 'on' : '',
           `<span class="n qs-futura">${esc(label(s, i))}</span><span class="t${on ? ' qs-section-title' : ''}">${QS.inline(s.title)}</span>` +
-          (on && s.subtitle ? `<span class="s">${QS.inline(s.subtitle)}</span>` : '')));
+          (on && s.subtitle ? `<span class="s">${QS.inline(s.subtitle)}</span>` : '') +
+          (on ? '<i class="qs-rm-line"></i>' : '')));
         li.style.setProperty('--i', i); // 入场动画按顺序错开
       });
       root.appendChild(list);
