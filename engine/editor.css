@@ -46,7 +46,6 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 #ed-status.saving { color: var(--accent); }
 .ed-offline-tag { display: none; color: #da1e28; font-size: 12px; }
 .ed-offline .ed-offline-tag { display: inline; }
-select.ed-lang { width: auto; padding: 5px 6px; font-size: 13px; }
 .ed-todo-btn { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
 /* 左侧幻灯片列表 */

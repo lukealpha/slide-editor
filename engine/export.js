@@ -101,8 +101,7 @@ ${playerCss}
 </head>
 <body>
 <script>window.__QS_DECK__ = ${JSON.stringify(deck).replace(/</g, '\\u003c')};
-window.__QS_ASSETS__ = ${JSON.stringify(assets)};
-window.__QS_LANG__ = ${JSON.stringify(QS.lang || 'en')};</script>
+window.__QS_ASSETS__ = ${JSON.stringify(assets)};</script>
 ${Object.keys(js).map((f) => `<script>/* ${f} */\n${safeScript(js[f])}\n</script>`).join('\n')}
 <script>QS.assetMap = window.__QS_ASSETS__; QS.boot();</script>
 </body>

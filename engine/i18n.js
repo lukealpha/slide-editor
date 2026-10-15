@@ -1,4 +1,4 @@
-/* UI 多语言。默认英文；缺失的词条回退到英文。语言选择保存在浏览器本地（每位使用者各自生效）。
+/* UI 多语言。语言跟随浏览器设置（支持 en / zh，其他语言用英文）；缺失的词条回退到英文。
  * 用法：QS.t('key', { var: 1 })；组件元数据可写成 { en: '…', zh: '…' }，用 QS.tl() 取当前语言。 */
 (function () {
   'use strict';
@@ -79,7 +79,6 @@
     'ed.presenter': 'Presenter mode',
     'ed.playStart': 'Play from start',
     'ed.play': '▶ Play from here',
-    'ed.langTip': 'Interface language',
     'ed.status.saving': 'Saving…',
     'ed.status.dirty': 'Unsaved',
     'ed.status.ok': 'Saved',
@@ -276,7 +275,6 @@
     'ed.setAccent': 'Accent color (highlights, circuit gates and cover art follow it)',
     'ed.setAccentReset': 'Reset to default blue',
     'ed.setPageNo': 'Show page numbers on content slides',
-    'ed.setLang': 'Interface language',
     'ed.exporting': 'Exporting…',
     'ed.expPrepare': 'Preparing…',
     'ed.expWrite': 'Writing file…',
@@ -359,7 +357,6 @@
     'ed.presenter': '演讲者模式',
     'ed.playStart': '从头放映',
     'ed.play': '▶ 从当前页放映',
-    'ed.langTip': '界面语言',
     'ed.status.saving': '保存中…',
     'ed.status.dirty': '未保存',
     'ed.status.ok': '已保存',
@@ -549,7 +546,6 @@
     'ed.setAccent': '主题色（高亮、线路门、封面插画都会跟着变）',
     'ed.setAccentReset': '恢复默认蓝',
     'ed.setPageNo': '内容页右下角显示页码',
-    'ed.setLang': '界面语言',
     'ed.exporting': '正在导出…',
     'ed.expPrepare': '准备中…',
     'ed.expWrite': '写入文件…',
@@ -563,23 +559,20 @@
   };
 
   const DICT = { en, zh };
-  QS.LANGS = { en: 'English', zh: '中文' };
   QS.i18n = DICT;
 
+  /** 按浏览器的语言偏好顺序取第一个支持的语言（zh-CN、zh-TW… → zh），都不支持则用英文。
+   *  命令行工具（Node 里没有 document）始终用英文。 */
   function pick() {
-    try {
-      const v = window.localStorage && localStorage.getItem('qs-lang');
-      if (v && DICT[v]) return v;
-    } catch (e) {}
-    if (window.__QS_LANG__ && DICT[window.__QS_LANG__]) return window.__QS_LANG__;
+    if (typeof document === 'undefined' || typeof navigator === 'undefined') return 'en';
+    const prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+    for (const tag of prefs) {
+      const base = String(tag).toLowerCase().split('-')[0];
+      if (DICT[base]) return base;
+    }
     return 'en';
   }
   QS.lang = pick();
-  QS.setLang = function (l) {
-    if (!DICT[l]) return;
-    QS.lang = l;
-    try { localStorage.setItem('qs-lang', l); } catch (e) {}
-  };
 
   /** 取词条：当前语言 → 英文 → key 本身；{name} 占位符用 vars 替换 */
   QS.t = function (key, vars) {

@@ -208,7 +208,6 @@
       <span class="ed-offline-tag">${t('ed.offline')}</span>
       <span class="ed-flex"></span>
       <button id="ed-todo" class="ed-todo-btn" title="${t('ed.todoTip')}"></button>
-      <select id="ed-lang" class="ed-lang" title="${t('ed.langTip')}">${Object.entries(QS.LANGS).map(([k, v]) => `<option value="${k}"${k === QS.lang ? ' selected' : ''}>${v}</option>`).join('')}</select>
       <button id="ed-help">${t('ed.help')}</button>
       <button id="ed-git" class="ed-git-btn" title="${t('git.badgeTip')}">Git</button>
       <button id="ed-settings">${t('ed.settings')}</button>
@@ -256,11 +255,6 @@
     $('#ed-git').onclick = () => QS.showGit();
     $('#ed-settings').onclick = showSettings;
     $('#ed-todo').onclick = nextTodo;
-    $('#ed-lang').onchange = async (e) => {
-      QS.setLang(e.target.value);
-      await save();
-      location.reload();
-    };
     $('#ed-copy-slide-ref').onclick = () => copyRef(null);
     $('#ed-show-ids').onchange = (e) => {
       E.showIds = e.target.checked;

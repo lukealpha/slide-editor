@@ -19,7 +19,7 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 - `server.js`：Node 标准库，零依赖（不需要 npm install），仅 127.0.0.1。
 - npm 脚本：`dev`/`start`（启动并打开浏览器）、`serve`（不打开浏览器）、`export`（命令行导出到 `slide/export/`）、`check`（校验 deck.json：编号、KaTeX、组件、图片）。`tools/engine.js` 在 Node 里用 vm 载入浏览器端引擎代码，导出逻辑与编辑器共用 `engine/export.js`。
 - `slide/animations/*.js`：这份幻灯片的动画组件，服务器会自动列出（`_` 开头的文件除外）。新组件从 `templates/animation.js` 复制。
-- 界面文字全部在 `engine/i18n.js`（en 为默认和回退，zh 可选；语言存在浏览器 localStorage `qs-lang`，导出文件沿用导出时的语言）。新增 UI 文字必须两种语言都加词条，不要在代码里写死。组件的 name / description / 参数 label 可写成 `{ en, zh }`。
+- 界面文字全部在 `engine/i18n.js`（跟随浏览器的语言设置：中文浏览器用 zh，其他一律 en；en 也是缺失词条的回退。编辑器里没有语言选单，导出文件同样按观看者的浏览器语言显示）。新增 UI 文字必须两种语言都加词条，不要在代码里写死。组件的 name / description / 参数 label 可写成 `{ en, zh }`。
 - 引擎是 classic script（不能用 ES module），因为导出文件要能在 `file://` 下直接运行。不允许引入 CDN 或需要 npm 构建的东西。
 
 ## 修改 deck.json 的规则
