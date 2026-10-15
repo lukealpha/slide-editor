@@ -4,7 +4,7 @@
   const QS = window.QS;
 
   const ENGINE_JS = ['engine/i18n.js', 'engine/core.js', 'engine/circuit.js', 'engine/coverart.js', 'engine/player.js'];
-  const WEIGHTS = [[300, 'Light'], [400, 'Regular'], [600, 'SemiBold']];
+  const WEIGHTS = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'SemiBold']];
   // 除文稿内容外始终保留的字符：ASCII、常用标点、希腊字母、常用数学符号
   const EXTRA =
     ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~' +

@@ -1,6 +1,7 @@
 /* IBM Quantum Learning 讲义风格主题（中文版）。幻灯片逻辑尺寸 1280×720。 */
 @font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
+@font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
 
 .qs-slide {
@@ -35,7 +36,7 @@
 /* ---------- 内容页 ---------- */
 .qs-title {
   position: absolute; left: 96px; right: 96px; top: 46px; margin: 0;
-  font-weight: 300; font-size: 58px; line-height: 1.15; color: var(--title); letter-spacing: 0.01em;
+  font-weight: 500; font-size: 50px; line-height: 1.15; color: var(--title); letter-spacing: 0.01em;
 }
 .qs-body {
   position: absolute; left: 96px; right: 96px; top: 150px; bottom: 48px;

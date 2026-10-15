@@ -296,7 +296,7 @@
     }
     QS.migrate(deck);
     if (document.fonts && document.fonts.load) {
-      await Promise.all([300, 400, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.ready])).catch(() => {});
+      await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.ready])).catch(() => {});
     }
     document.title = (deck.meta && deck.meta.title) || QS.t('player.defaultTitle');
     document.documentElement.lang = QS.lang === 'zh' ? 'zh-CN' : 'en';

@@ -1470,7 +1470,7 @@
     QS.migrate(E.deck);
     E.committed = JSON.stringify(E.deck);
     if (E.committed !== before) { E.dirty = true; setTimeout(save, 500); } // 旧版 TODO 块已转换，写回文件
-    if (document.fonts) await Promise.all([300, 400, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子'))).catch(() => {});
+    if (document.fonts) await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子'))).catch(() => {});
     renderAll();
     setInterval(poll, 1500);
     QS.gitBadge($('#ed-git'));
