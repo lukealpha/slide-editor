@@ -75,8 +75,9 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
   position: absolute; top: -0.85em; left: 20px; padding: 0 10px; background: #fff;
   color: var(--accent); font-size: 21px; line-height: 1.6;
 }
-.qs-box-note { background: #edf3fe; border-color: transparent; border-left: 4px solid var(--accent); }
-.qs-box-note .qs-box-label { position: static; padding: 0; background: none; font-weight: 600; margin-bottom: 4px; }
+/* 提示框：标签在框内，上下内边距对称（示例框的大上边距是给压在边框上的标签留的，这里不需要） */
+.qs-box-note { background: #edf3fe; border-color: transparent; border-left: 4px solid var(--accent); padding: 18px 24px 21px 22px; }
+.qs-box-note .qs-box-label { position: static; padding: 0; background: none; font-weight: 600; line-height: 1.3; margin-bottom: 8px; }
 
 .qs-image { margin: 0; text-align: center; }
 .qs-image img { display: inline-block; max-width: 100%; }
