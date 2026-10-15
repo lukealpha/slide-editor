@@ -1,0 +1,5 @@
+# 幻灯片内容是独立的文件夹（可以有自己的 git 仓库），编辑系统不追踪它
+/slide/
+
+node_modules/
+.DS_Store

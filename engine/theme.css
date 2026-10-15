@@ -1,0 +1,153 @@
+/* IBM Quantum Learning 讲义风格主题（中文版）。幻灯片逻辑尺寸 1280×720。 */
+@font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
+@font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
+@font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
+
+.qs-slide {
+  --accent: #5588F6;
+  --ink: #161616;
+  --title: #697077;
+  --muted: #8d8d8d;
+  --panel: #f2f4f8;
+  --line: #c1c7cd;
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: #fff;
+  color: var(--ink);
+  font-family: 'Plex SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.6;
+  box-sizing: border-box;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.qs-slide *, .qs-slide *::before, .qs-slide *::after { box-sizing: border-box; }
+.qs-slide p { margin: 0 0 0.55em; }
+.qs-slide p:last-child { margin-bottom: 0; }
+.qs-slide strong { font-weight: 600; }
+.qs-slide .katex { font-size: 1.08em; }
+.qs-title .katex, .qs-section-title .katex, .qs-cover-title .katex { font-size: 0.92em; }
+.qs-slide .katex .text, .qs-slide .katex .mord.text { font-family: KaTeX_Main, 'Plex SC', sans-serif; }
+
+/* ---------- 内容页 ---------- */
+.qs-title {
+  position: absolute; left: 96px; right: 96px; top: 46px; margin: 0;
+  font-weight: 300; font-size: 58px; line-height: 1.15; color: var(--title); letter-spacing: 0.01em;
+}
+.qs-body {
+  position: absolute; left: 96px; right: 96px; top: 150px; bottom: 48px;
+}
+.qs-body.qs-split { display: grid; column-gap: 56px; }
+.qs-col { min-width: 0; }
+.qs-block { margin: 0 0 18px; }
+.qs-block:last-child { margin-bottom: 0; }
+
+.qs-text.qs-size-large { font-size: 30px; }
+.qs-text.qs-size-small { font-size: 20px; }
+
+/* 关键词高亮：蓝底白字，出现时从左向右扫入 */
+.qs-hl {
+  color: #fff; font-weight: 600; padding: 0.02em 0.22em; margin: 0 0.08em;
+  background: linear-gradient(var(--accent), var(--accent)) no-repeat left / 100% 100%;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.qs-hl .katex { color: #fff; }
+.qs-accent { color: var(--accent); font-weight: 600; }
+
+.qs-list { margin: 0; padding-left: 1.3em; }
+.qs-list li { margin: 0 0 0.35em; padding-left: 0.2em; }
+.qs-list li::marker { color: var(--ink); }
+ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
+
+.qs-formula { text-align: center; padding: 6px 0; position: relative; }
+.qs-formula.qs-boxed { background: var(--panel); padding: 20px 28px; }
+.qs-formula .katex-display { margin: 0; }
+.qs-formula.qs-seq { display: grid; }
+.qs-formula.qs-seq > .qs-seq-item { grid-area: 1 / 1; align-self: center; }
+.qs-formula-cap { font-size: 0.8em; color: var(--muted); margin-top: 6px; }
+.qs-tex-err { color: #da1e28; font-family: monospace; font-size: 0.8em; border-bottom: 2px dashed #da1e28; }
+
+.qs-box { position: relative; border: 1px solid var(--line); padding: 26px 26px 18px; margin-top: 14px; }
+.qs-box-label {
+  position: absolute; top: -0.85em; left: 20px; padding: 0 10px; background: #fff;
+  color: var(--accent); font-size: 21px; line-height: 1.6;
+}
+.qs-box-note { background: #edf3fe; border-color: transparent; border-left: 4px solid var(--accent); }
+.qs-box-note .qs-box-label { position: static; padding: 0; background: none; font-weight: 600; margin-bottom: 4px; }
+
+.qs-image { margin: 0; text-align: center; }
+.qs-image img { display: inline-block; max-width: 100%; }
+.qs-image figcaption { font-size: 18px; color: var(--muted); margin-top: 6px; }
+.qs-image-empty { border: 2px dashed var(--line); color: var(--muted); padding: 40px; font-size: 18px; }
+
+.qs-anim { position: relative; width: 100%; }
+.qs-anim-missing { border: 2px dashed var(--line); color: var(--muted); height: 100%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+.qs-todo {
+  border: 2px dashed var(--accent); background: #f3f7ff; color: #2a5bd7;
+  padding: 12px 16px; font-size: 18px; line-height: 1.5;
+}
+.qs-todo-tag { display: inline-block; background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; padding: 1px 8px; margin-right: 10px; letter-spacing: 0.05em; vertical-align: 2px; }
+.qs-mode-present .qs-editor-only { display: none; }
+
+.qs-pageno { position: absolute; right: 40px; bottom: 22px; font-size: 15px; color: var(--muted); }
+
+/* ---------- 封面 ---------- */
+.qs-type-cover { background: #f4f4f4; }
+.qs-cover-text { position: absolute; left: 32px; top: 22px; width: 600px; }
+.qs-cover-title { margin: 0; font-weight: 300; font-size: 62px; line-height: 1.22; color: var(--ink); letter-spacing: 0.01em; }
+.qs-cover-author { margin-top: 26px; font-size: 24px; }
+.qs-cover-sub { position: absolute; top: 400px; font-size: 26px; line-height: 1.5; width: 600px; }
+.qs-cover-art { position: absolute; right: 30px; top: 24px; width: 584px; height: 584px; }
+.qs-cover-art svg { width: 100%; height: 100%; display: block; }
+.qs-cover-footer { position: absolute; left: 32px; bottom: 22px; font-size: 17px; color: #525252; }
+
+/* ---------- 章节页 ---------- */
+.qs-section-box { position: absolute; left: 96px; right: 160px; top: 250px; border-left: 6px solid var(--accent); padding-left: 36px; }
+.qs-section-num { font-size: 26px; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+.qs-section-title { margin: 0; font-weight: 300; font-size: 64px; line-height: 1.2; color: var(--ink); }
+.qs-section-sub { margin-top: 16px; font-size: 26px; color: var(--title); }
+
+/* ---------- 逐步出现 ---------- */
+.qs-slide [data-step] { transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s; }
+.qs-slide .qs-off { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s 0.25s; }
+.qs-slide [data-anim="rise"].qs-off { transform: translateY(18px); }
+.qs-slide [data-anim="none"] { transition: none; }
+.qs-slide .qs-sub.qs-off { transform: translateY(10px); }
+.qs-slide .qs-seq-item { transition: opacity 0.5s ease, transform 0.5s ease, visibility 0s; }
+.qs-slide .qs-seq-item.qs-off { transform: translateY(-10px); }
+.qs-slide .qs-on .qs-hl, .qs-slide .qs-hl { animation: qs-sweep 0.6s ease-out 0.15s both; }
+.qs-slide .qs-off .qs-hl { animation: none; background-size: 0 100%; color: var(--ink); }
+.qs-slide.qs-noanim *, .qs-slide.qs-noanim *::before, .qs-slide.qs-noanim *::after { transition: none !important; animation: none !important; }
+@keyframes qs-sweep {
+  from { background-size: 0 100%; color: var(--ink); }
+  45% { color: var(--ink); }
+  to { background-size: 100% 100%; color: #fff; }
+}
+
+/* 编辑器里预览某一步时，尚未出现的内容显示为淡影 */
+.qs-mode-edit.qs-ghost .qs-off { visibility: visible; opacity: 0.13; transform: none; }
+.qs-mode-edit.qs-ghost .qs-off .qs-hl { background-size: 100% 100%; color: #fff; }
+
+/* ---------- 量子线路 ---------- */
+.qs-circuit-wrap { display: flex; justify-content: center; }
+.qs-circuit { position: relative; flex: none; }
+.qs-circuit-wires { position: absolute; left: 0; top: 0; overflow: visible; }
+.qs-circuit-wires line { stroke: var(--ink); stroke-width: 1.6; }
+.qs-circuit-wires line.x { stroke-width: 2.4; }
+.qs-circuit-wires circle.dot { fill: var(--ink); }
+.qs-circuit-wires circle.oplus { fill: #fff; stroke: var(--ink); stroke-width: 1.6; }
+.qs-gate {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; line-height: 1; border-radius: 2px;
+}
+.qs-gate .katex { font-size: 1em; color: #fff; }
+.qs-gate-multi { background: #fff; color: var(--ink); border: 1.6px solid var(--ink); }
+.qs-gate-multi .katex { color: var(--ink); }
+.qs-gate-meas { background: #e0e0e0; color: var(--ink); }
+.qs-gate-meas svg { width: 100%; height: 100%; }
+.qs-circuit-label { position: absolute; transform: translateY(-50%); white-space: nowrap; line-height: 1; }
+.qs-circuit-dots { position: absolute; text-align: center; background: #fff; line-height: 32px; font-size: 1.2em; color: var(--ink); }

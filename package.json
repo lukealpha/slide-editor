@@ -1,0 +1,15 @@
+{
+  "name": "qft-slides",
+  "private": true,
+  "description": "QFT class presentation · slide editor (no npm install needed)",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "serve": "node server.js --no-open",
+    "export": "node tools/export.js",
+    "check": "node tools/check.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
