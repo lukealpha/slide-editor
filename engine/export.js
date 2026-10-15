@@ -72,6 +72,8 @@
       const sub = await QS.fontSubset.subsetWoff(wasm, woff, uniq);
       faces += `@font-face{font-family:'Plex SC';font-weight:${w};src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
     }
+    // 章节编号的后备字体 Jost（Futura 是系统字体，不能打包；Jost 只有 14 KB，整体内嵌）
+    faces += `@font-face{font-family:'Jost';font-weight:500;src:url(${await dataURL(await bytes('vendor/fonts/Jost-500-latin.woff'), 'font/woff')}) format('woff');}\n`;
     themeCss = themeCss.replace(/@font-face[^}]*\}\s*/g, '');
 
     progress(QS.t('exp.images'));

@@ -938,7 +938,7 @@
       field(sec, t('ed.footer'), textIn(s, 'footer'));
     }
     if (s.type === 'section') {
-      field(sec, t('ed.sectionNum'), textIn(s, 'number'));
+      field(sec, t('ed.sectionNum'), textIn(s, 'number'), t('ed.sectionNumHint'));
       field(sec, t('ed.subtitle'), textIn(s, 'subtitle', { rows: 2 }));
     }
     if (s.type === 'content') {
@@ -1419,6 +1419,7 @@
     row.appendChild(reset);
     field(sec, t('ed.setAccent'), row);
     checkIn(sec, m, 'pageNumbers', t('ed.setPageNo'), { structure: true });
+    field(sec, t('ed.setSecStyle'), seg(m, 'sectionStyle', QS.SECTION_STYLES.map((k) => [k, t('ed.secStyle.' + k)]), { structure: true }), t('ed.setSecStyleHint'));
     modal(t('ed.setTitle'), box);
   }
 
@@ -1470,7 +1471,7 @@
     QS.migrate(E.deck);
     E.committed = JSON.stringify(E.deck);
     if (E.committed !== before) { E.dirty = true; setTimeout(save, 500); } // 旧版 TODO 块已转换，写回文件
-    if (document.fonts) await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子'))).catch(() => {});
+    if (document.fonts) await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.load('500 24px Jost', 'PART 0123456789')])).catch(() => {});
     renderAll();
     setInterval(poll, 1500);
     QS.gitBadge($('#ed-git'));

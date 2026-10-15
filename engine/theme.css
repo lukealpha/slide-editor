@@ -2,6 +2,8 @@
 @font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
+/* 章节编号用 Futura（macOS 自带）；没有 Futura 的电脑用开源的 Jost（几何无衬线，风格接近），随编辑器打包 */
+@font-face { font-family: 'Jost'; font-weight: 500; src: url(../vendor/fonts/Jost-500-latin.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
 
 .qs-slide {
@@ -104,11 +106,27 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
 .qs-cover-art svg { width: 100%; height: 100%; display: block; }
 .qs-cover-footer { position: absolute; font-size: 17px; color: #525252; }
 
-/* ---------- 章节页 ---------- */
-.qs-section-box { position: absolute; left: 96px; right: 160px; top: 250px; border-left: 6px solid var(--accent); padding-left: 36px; }
-.qs-section-num { font-size: 26px; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
-.qs-section-title { margin: 0; font-weight: 300; font-size: 64px; line-height: 1.2; color: var(--ink); }
-.qs-section-sub { margin-top: 16px; font-size: 26px; color: var(--title); }
+/* ---------- 章节页：两种样式（全局设置 meta.sectionStyle）----------
+ * panel   左侧主题色面板（PART + 大号编号）+ 右侧路线图
+ * roadmap 只有路线图
+ * 路线图的竖直位置、编号的位置和字号由 QS.layoutSection() 在挂载后计算 */
+.qs-futura { font-family: Futura, 'Futura PT', 'Jost', sans-serif; }
+.qs-rm { position: absolute; top: 0; margin: 0; padding: 0; list-style: none; }
+.qs-rm li { display: grid; grid-template-columns: 128px 1fr; align-items: baseline; padding: 16px 0; border-top: 1px solid #e0e0e0; color: #a8a8a8; }
+.qs-rm li:last-child { border-bottom: 1px solid #e0e0e0; }
+.qs-rm .n { font-size: 22px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.qs-rm .t { font-size: 30px; font-weight: 300; line-height: 1.35; }
+.qs-rm li.on { color: var(--ink); border-top: 3px solid var(--accent); padding: 22px 0 24px; }
+.qs-rm li.on + li { border-top-color: transparent; }
+.qs-rm li.on .n { color: var(--accent); }
+.qs-rm li.on .t { font-size: 46px; font-weight: 500; line-height: 1.2; }
+.qs-rm .s { grid-column: 2; font-size: 26px; font-weight: 300; color: var(--title); margin-top: 10px; }
+.qs-secstyle-roadmap .qs-rm { left: 96px; right: 96px; }
+.qs-sec-panel { position: absolute; left: 0; top: 0; bottom: 0; width: 374px; background: var(--accent); color: #fff; overflow: hidden; }
+.qs-sec-label { position: absolute; left: 60px; top: 58px; font-size: 26px; font-weight: 500; line-height: 1.6; letter-spacing: 0.32em; text-transform: uppercase; white-space: nowrap; }
+.qs-sec-num { position: absolute; left: 60px; top: 150px; font-size: 222px; line-height: 1; font-weight: 500; white-space: nowrap; }
+.qs-secstyle-panel .qs-rm { width: 704px; left: calc(374px + (1280px - 374px - 704px) / 2); }
+.qs-secstyle-panel .qs-rm li { grid-template-columns: 112px 1fr; }
 
 /* ---------- 逐步出现 ---------- */
 .qs-slide [data-step] { transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s; }

@@ -97,6 +97,45 @@
     return deck;
   };
 
+  /* ---------- 章节页 ---------- */
+  QS.SECTION_STYLES = ['panel', 'roadmap']; // 第一个为默认
+  const SEC = { H: 720, TOP: 72, BOTTOM: 72, NUM_BOTTOM: 337, NUM_HEIGHT: 180 };
+  /** 挂载后计算：路线图竖直位置（当前章节尽量居中，与整体居中加权折中并限制在边距内）；
+   *  大号编号：0–9 中最高的数字刚好 NUM_HEIGHT 高，底边落在 NUM_BOTTOM，左边与标签首字母按墨迹对齐 */
+  QS.layoutSection = function (root) {
+    const list = root.querySelector('.qs-rm');
+    if (list && list.offsetHeight) {
+      const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
+      const listH = list.offsetHeight;
+      let top = (SEC.H - listH) / 2;
+      if (cur >= 0) {
+        const mid = rows[cur].offsetTop + rows[cur].offsetHeight / 2;
+        top = 0.65 * (SEC.H / 2 - mid) + 0.35 * (SEC.H / 2 - listH / 2);
+        top = Math.min(Math.max(top, SEC.TOP), SEC.H - SEC.BOTTOM - listH);
+        if (listH > SEC.H - SEC.TOP - SEC.BOTTOM) top = (SEC.H - listH) / 2;
+      }
+      list.style.top = Math.round(top) + 'px';
+    }
+    const lab = root.querySelector('.qs-sec-label'), num = root.querySelector('.qs-sec-num');
+    if (!lab || !num || !lab.isConnected) return;
+    const c = document.createElement('canvas').getContext('2d');
+    const lf = getComputedStyle(lab), nf = getComputedStyle(num);
+    c.font = `${lf.fontWeight} ${lf.fontSize} ${lf.fontFamily}`;
+    const first = (lab.textContent.trim()[0] || 'P').toUpperCase();
+    const labInkLeft = parseFloat(lf.left) - c.measureText(first).actualBoundingBoxLeft;
+    c.font = `${nf.fontWeight} 100px ${nf.fontFamily}`;
+    let maxH = 0;
+    for (const d of '0123456789') { const m = c.measureText(d); maxH = Math.max(maxH, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent); }
+    if (!maxH) return;
+    const size = SEC.NUM_HEIGHT / (maxH / 100);
+    num.style.fontSize = size.toFixed(1) + 'px';
+    c.font = `${nf.fontWeight} ${size}px ${nf.fontFamily}`;
+    const D = c.measureText(num.textContent), zero = c.measureText('0');
+    const baseInBox = (size - (D.fontBoundingBoxAscent + D.fontBoundingBoxDescent)) / 2 + D.fontBoundingBoxAscent;
+    num.style.left = (labInkLeft + D.actualBoundingBoxLeft) + 'px';
+    num.style.top = (SEC.NUM_BOTTOM - zero.actualBoundingBoxDescent - baseInBox) + 'px';
+  };
+
   /* ---------- 动画组件注册 ---------- */
   QS.animations = QS.animations || {};
   QS.registerAnimation = function (def) {
@@ -332,11 +371,26 @@
         root.appendChild(foot);
       }
     } else if (slide.type === 'section') {
-      const box = el('div', 'qs-section-box');
-      if (slide.number) box.appendChild(el('div', 'qs-section-num', esc(slide.number)));
-      box.appendChild(el('h1', 'qs-section-title', QS.inline(slide.title)));
-      if (slide.subtitle) box.appendChild(el('div', 'qs-section-sub', QS.inline(slide.subtitle)));
-      root.appendChild(box);
+      // 路线图列出整份幻灯片的所有章节页，当前章节放大高亮；panel 样式在左侧加主题色面板和大号编号
+      const style = QS.SECTION_STYLES.includes(deck.meta && deck.meta.sectionStyle) ? deck.meta.sectionStyle : QS.SECTION_STYLES[0];
+      root.classList.add('qs-secstyle-' + style);
+      const secs = deck.slides.filter((s) => s.type === 'section');
+      const cur = secs.findIndex((s) => s.id === slide.id);
+      const label = (s, i) => String(s.number || '').trim() || 'Part ' + (i + 1);
+      if (style === 'panel') {
+        const num = label(slide, cur);
+        const digits = (num.match(/\d+/) || [String(cur + 1)])[0];
+        const word = num.replace(/\d+/, '').replace(/\s+/g, ' ').trim() || 'Part';
+        root.appendChild(el('div', 'qs-sec-panel', `<div class="qs-sec-label qs-futura">${esc(word)}</div><div class="qs-sec-num qs-futura">${esc(digits)}</div>`));
+      }
+      const list = el('ol', 'qs-rm');
+      secs.forEach((s, i) => {
+        const on = i === cur;
+        list.appendChild(el('li', on ? 'on' : '',
+          `<span class="n qs-futura">${esc(label(s, i))}</span><span class="t${on ? ' qs-section-title' : ''}">${QS.inline(s.title)}</span>` +
+          (on && s.subtitle ? `<span class="s">${QS.inline(s.subtitle)}</span>` : '')));
+      });
+      root.appendChild(list);
     } else {
       if (slide.title) root.appendChild(el('h1', 'qs-title', QS.inline(slide.title)));
       const body = el('div', 'qs-body');
@@ -393,6 +447,11 @@
         if (mounted) return;
         mounted = true;
         pending.forEach((f) => f());
+        if (slide.type === 'section') {
+          QS.layoutSection(root);
+          // 字体（Futura / Jost）如果稍后才载入，载入后重新计算一次
+          if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => root.isConnected && QS.layoutSection(root));
+        }
         if (current >= 0) api.setStep(current, false);
       },
       setStep(step, animate) {
