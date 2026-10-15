@@ -59,7 +59,8 @@
     if (/^T-/.test(b.id)) {
       const pb = b.block && (s.blocks || []).find((x) => x.id === b.block);
       const where = pb ? `${pb.id} ${typeName(pb)}` : `(${Math.round(b.x || 0)}, ${Math.round(b.y || 0)})`;
-      return t('ed.ref.todo', { page, id: b.id, where, snip: String(b.text || '').replace(/\s+/g, ' ').trim() });
+      const ref = t('ed.ref.todo', { page, id: b.id, where, snip: String(b.text || '').replace(/\s+/g, ' ').trim() });
+      return (b.files || []).length ? ref + t('ed.ref.files', { files: b.files.join(', ') }) : ref;
     }
     return t('ed.ref.block', { page, id: b.id, type: typeName(b), snip: snippet(b) });
   }
@@ -295,7 +296,11 @@
       canvas.classList.remove('drop');
       if (!hasFiles(e)) return;
       e.preventDefault();
-      for (const f of e.dataTransfer.files) if (f.type.startsWith('image/')) insertImageFile(f);
+      const imgs = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+      const pin = e.target.closest('.ed-pin');
+      const td = pin && (slide().todos || []).find((x) => x.id === pin.dataset.todoId);
+      if (td) return attachFiles(td, imgs); // 拖到图钉上 = 作为这个 TODO 的附件
+      for (const f of imgs) insertImageFile(f);
     });
     window.addEventListener('keydown', onKey);
     window.addEventListener('paste', onPaste);
@@ -635,6 +640,26 @@
     changed({ structure: true });
     toast(t('ed.todo.deleted', { id: td.id }));
   }
+  /** 把图片作为 TODO 附件上传到幻灯片的 todo/ 文件夹（只给 Claude 参考，不会导出） */
+  async function attachFiles(td, files) {
+    files = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith('image/'));
+    if (!files.length) return;
+    try {
+      for (const f of files) {
+        const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+        const name = td.id + '-' + (f.name && !/^image\.\w+$/.test(f.name) ? f.name : Date.now() + '.' + ext);
+        (td.files = td.files || []).push(await uploadFile(f, 'todo', name));
+      }
+      E.todoId = td.id;
+      E.blockId = null;
+      changed({ structure: true });
+      renderCanvas();
+      toast(t('ed.todo.attached', { n: files.length, id: td.id }));
+    } catch (e) {
+      toast(t('ed.uploadFail', { msg: e.message }), 'err');
+    }
+  }
+
   function drawPins() {
     const s = slide();
     if (!E.showTodos || !(s.todos || []).length) return;
@@ -647,7 +672,8 @@
       pin.style.left = p.x + 'px';
       pin.style.top = p.y + 'px';
       const txt = String(td.text || '').trim() || t('ed.todo.empty');
-      pin.innerHTML = `<span class="ed-pin-dot">${i + 1}</span><span class="ed-pin-text">${QS.esc(txt)}</span>`;
+      const nf = (td.files || []).length;
+      pin.innerHTML = `<span class="ed-pin-dot">${i + 1}</span><span class="ed-pin-text">${nf ? `<b class="ed-pin-files">📎${nf}</b>` : ''}${QS.esc(txt)}</span>`;
       pin.title = td.id;
       pin.addEventListener('mousedown', (e) => startPinDrag(e, td, pin));
       layer.appendChild(pin);
@@ -725,8 +751,9 @@
     changed({ structure: true });
   }
 
-  async function uploadFile(f) {
-    const res = await fetch('api/upload?name=' + encodeURIComponent(f.name || 'image.png'), { method: 'POST', body: f });
+  async function uploadFile(f, kind, name) {
+    const q = 'name=' + encodeURIComponent(name || f.name || 'image.png') + (kind ? '&kind=' + kind : '');
+    const res = await fetch('api/upload?' + q, { method: 'POST', body: f });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error);
     return j.path;
@@ -958,6 +985,47 @@
       ? QS.esc(t('ed.todo.pinnedTo', { id: pb.id, type: typeName(pb) }))
       : QS.esc(t('ed.todo.free', { x: Math.round(td.x || 0), y: Math.round(td.y || 0) }))));
     sec.appendChild(el('p', 'ed-hint', QS.esc(t('ed.todo.dragHint'))));
+
+    const fsec = section(p, t('ed.todo.files'));
+    fsec.classList.add('ed-todo-files');
+    const grid = el('div', 'ed-thumbs');
+    (td.files || []).forEach((f, i) => {
+      const th = el('div', 'ed-thumb-file');
+      th.innerHTML = `<img src="${QS.esc(f)}" alt=""><span>${QS.esc(f.replace(/^todo\//, ''))}</span>`;
+      th.title = f;
+      th.onclick = () => window.open(f, '_blank');
+      const x = el('button', 'tiny', '✕');
+      x.title = t('ed.todo.removeFile');
+      x.onclick = (e) => {
+        e.stopPropagation();
+        td.files.splice(i, 1);
+        if (!td.files.length) delete td.files;
+        changed({ structure: true });
+      };
+      th.appendChild(x);
+      grid.appendChild(th);
+    });
+    fsec.appendChild(grid);
+    const fi = el('input');
+    fi.type = 'file';
+    fi.accept = 'image/*';
+    fi.multiple = true;
+    fi.style.display = 'none';
+    fi.onchange = () => attachFiles(td, fi.files);
+    const add = el('button', 'small', t('ed.todo.addFile'));
+    add.onclick = () => fi.click();
+    fsec.appendChild(add);
+    fsec.appendChild(fi);
+    fsec.appendChild(el('p', 'ed-hint', QS.esc(t('ed.todo.filesHint'))));
+    fsec.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); fsec.classList.add('drop'); } });
+    fsec.addEventListener('dragleave', () => fsec.classList.remove('drop'));
+    fsec.addEventListener('drop', (e) => {
+      fsec.classList.remove('drop');
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      attachFiles(td, e.dataTransfer.files);
+    });
+
     const a = section(p, '');
     a.classList.add('ed-actions');
     const del = el('button', 'small danger', t('ed.menu.delTodo'));
@@ -1158,9 +1226,15 @@
     }
   }
   function onPaste(e) {
-    if (E.playing || typing(e)) return;
+    if (E.playing) return;
     const items = Array.from((e.clipboardData && e.clipboardData.items) || []);
     const img = items.find((i) => i.type.startsWith('image/'));
+    if (img && todo()) {
+      // 选中 TODO 时粘贴截图 = 添加附件（在 TODO 文本框里粘贴也一样）
+      e.preventDefault();
+      return attachFiles(todo(), items.filter((i) => i.type.startsWith('image/')).map((i) => i.getAsFile()));
+    }
+    if (typing(e)) return;
     if (img) {
       e.preventDefault();
       const f = img.getAsFile();

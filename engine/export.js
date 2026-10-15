@@ -39,6 +39,9 @@
   QS.exportDeck = async function (deck, progress, io) {
     progress = progress || (() => {});
     io = io || browserIO;
+    // TODO 标注（以及它们的图片附件）只属于编辑器，不进入导出文件
+    deck = JSON.parse(JSON.stringify(deck));
+    for (const s of deck.slides) delete s.todos;
     const text = io.text, bytes = io.bytes, dataURL = io.dataURL;
     const animFiles = io.animationFiles().map((f) => 'animations/' + f);
 

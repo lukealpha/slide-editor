@@ -21,6 +21,7 @@ const DECK = path.join(SLIDE, 'deck.json');
 const ASSETS = path.join(SLIDE, 'assets');
 const EXPORT = path.join(SLIDE, 'export');
 const ANIMS = path.join(SLIDE, 'animations');
+const TODO_FILES = path.join(SLIDE, 'todo'); // TODO 标注的图片附件（只给 Claude 看，不导出）
 const GIT_LOG_LIMIT = 300;
 
 const MIME = {
@@ -72,7 +73,7 @@ function readBody(req) {
 function resolveFile(pathname) {
   if (pathname === '/') pathname = '/index.html';
   const rel = decodeURIComponent(pathname).replace(/^\/+/, '');
-  const inSlide = rel === 'deck.json' || /^(assets|animations|export)\//.test(rel);
+  const inSlide = rel === 'deck.json' || /^(assets|animations|export|todo)\//.test(rel);
   const base = inSlide ? SLIDE : ROOT;
   const file = path.resolve(base, rel);
   return file.startsWith(base + path.sep) ? file : null;
@@ -126,13 +127,16 @@ async function handle(req, res) {
       return sendJSON(res, { ok: true, version: deckVersion() });
     }
     if (p === '/api/upload') {
-      fs.mkdirSync(ASSETS, { recursive: true });
+      // kind=todo：TODO 附件放进 todo/；否则是幻灯片素材，放进 assets/
+      const isTodo = q.kind === 'todo';
+      const dir = isTodo ? TODO_FILES : ASSETS;
+      fs.mkdirSync(dir, { recursive: true });
       const name = safeName(q.name);
       const ext = path.extname(name), stem = name.slice(0, name.length - ext.length);
-      let dest = path.join(ASSETS, name);
-      for (let i = 1; fs.existsSync(dest); i++) dest = path.join(ASSETS, `${stem}-${i}${ext}`);
+      let dest = path.join(dir, name);
+      for (let i = 1; fs.existsSync(dest); i++) dest = path.join(dir, `${stem}-${i}${ext}`);
       fs.writeFileSync(dest, await readBody(req));
-      return sendJSON(res, { ok: true, path: 'assets/' + path.basename(dest) });
+      return sendJSON(res, { ok: true, path: (isTodo ? 'todo/' : 'assets/') + path.basename(dest) });
     }
     if (p === '/api/export') {
       fs.mkdirSync(EXPORT, { recursive: true });

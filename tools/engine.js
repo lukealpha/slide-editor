@@ -15,7 +15,7 @@ function load(...files) {
 
 /** 与服务器相同的路径规则：幻灯片内容取自幻灯片文件夹，其余取自编辑器目录 */
 function resolve(rel) {
-  const inSlide = rel === 'deck.json' || /^(assets|animations|export)\//.test(rel);
+  const inSlide = rel === 'deck.json' || /^(assets|animations|export|todo)\//.test(rel);
   return path.join(inSlide ? SLIDE : ROOT, rel);
 }
 

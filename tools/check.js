@@ -43,6 +43,7 @@ function inline(s, where) {
 }
 
 const TYPES = { cover: 1, section: 1, content: 1 };
+const usedTodoFiles = new Set();
 (deck.slides || []).forEach((s, i) => {
   const w = `Slide ${i + 1} ${s.id || ''}`;
   checkId(s.id, 'S', w);
@@ -52,7 +53,12 @@ const TYPES = { cover: 1, section: 1, content: 1 };
     const tw = `${w} | ${td.id || '?'} TODO`;
     checkId(td.id, 'T', tw);
     if (td.block && !(s.blocks || []).some((b) => b.id === td.block)) warns.push(`${tw}: pinned block ${td.block} no longer exists (shown at its last free position)`);
-    warns.push(`${tw}${td.block ? ' on ' + td.block : ` at (${Math.round(td.x || 0)}, ${Math.round(td.y || 0)})`}: ${String(td.text || '').replace(/\s+/g, ' ')}`);
+    warns.push(`${tw}${td.block ? ' on ' + td.block : ` at (${Math.round(td.x || 0)}, ${Math.round(td.y || 0)})`}: ${String(td.text || '').replace(/\s+/g, ' ')}` +
+      ((td.files || []).length ? `  [attachments: ${td.files.join(', ')}]` : ''));
+    for (const f of td.files || []) {
+      usedTodoFiles.add(f);
+      if (!fs.existsSync(resolve(f))) errors.push(`${tw}: attachment not found: ${f}`);
+    }
   }
   if (s.type !== 'content') return;
   if (!Array.isArray(s.blocks)) return errors.push(`${w}: missing blocks array`);
@@ -79,6 +85,13 @@ const TYPES = { cover: 1, section: 1, content: 1 };
     }
   });
 });
+
+// todo/ 里没有被任何 TODO 引用的附件（TODO 处理完或附件被移除后留下的）
+let orphans = [];
+try {
+  orphans = fs.readdirSync(path.join(SLIDE, 'todo')).filter((f) => !f.startsWith('.')).map((f) => 'todo/' + f).filter((f) => !usedTodoFiles.has(f));
+} catch (e) {}
+for (const f of orphans) warns.push(`unused TODO attachment (safe to delete): ${f}`);
 
 const n = (deck.slides || []).length;
 for (const e of errors) console.log('  ✗ ' + e);
