@@ -449,7 +449,7 @@
         pending.forEach((f) => f());
         if (slide.type === 'section') {
           QS.layoutSection(root);
-          // 字体（Futura / Jost）如果稍后才载入，载入后重新计算一次
+          // 字体（Futura / Futura ND）如果稍后才载入，载入后重新计算一次
           if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => root.isConnected && QS.layoutSection(root));
         }
         if (current >= 0) api.setStep(current, false);

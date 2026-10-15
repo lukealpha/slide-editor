@@ -2,8 +2,9 @@
 @font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
-/* 章节编号用 Futura（macOS 自带）；没有 Futura 的电脑用开源的 Jost（几何无衬线，风格接近），随编辑器打包 */
-@font-face { font-family: 'Jost'; font-weight: 500; src: url(../vendor/fonts/Jost-500-latin.woff) format('woff'); }
+/* 章节编号用 Futura：macOS 用系统自带的 Futura；其他电脑（Windows）用本机私有的 Futura ND Medium。
+ * 该字体是商业授权字体，只放在 vendor/fonts/private/（已 git 忽略），不得提交或再分发；文件不存在时退回 sans-serif */
+@font-face { font-family: 'Futura ND Bundled'; font-weight: 500; src: url(../vendor/fonts/private/FuturaND-Medium.ttf) format('truetype'); }
 @font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
 
 .qs-slide {
@@ -110,7 +111,7 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
  * panel   左侧主题色面板（PART + 大号编号）+ 右侧路线图
  * roadmap 只有路线图
  * 路线图的竖直位置、编号的位置和字号由 QS.layoutSection() 在挂载后计算 */
-.qs-futura { font-family: Futura, 'Futura PT', 'Jost', sans-serif; }
+.qs-futura { font-family: Futura, 'Futura ND Bundled', sans-serif; }
 .qs-rm { position: absolute; top: 0; margin: 0; padding: 0; list-style: none; }
 .qs-rm li { display: grid; grid-template-columns: 128px 1fr; align-items: baseline; padding: 16px 0; border-top: 1px solid #e0e0e0; color: #a8a8a8; }
 .qs-rm li:last-child { border-bottom: 1px solid #e0e0e0; }

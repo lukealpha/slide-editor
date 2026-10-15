@@ -96,10 +96,12 @@
   }
 
   /** woff: Uint8Array；text: 需要保留的全部字符；返回子集化后的 WOFF（Uint8Array） */
+  /** 输入可以是 WOFF 或 TTF/OTF（sfnt）；输出统一为 WOFF */
   async function subsetWoff(wasmBytes, woff, text) {
     const cps = new Set();
     for (const ch of text) cps.add(ch.codePointAt(0));
-    const sfnt = await woffToSfnt(woff);
+    const isWoff = new DataView(woff.buffer, woff.byteOffset, 4).getUint32(0) === 0x774f4646;
+    const sfnt = isWoff ? await woffToSfnt(woff) : woff;
     const sub = await hbSubset(wasmBytes, sfnt, cps);
     return sfntToWoff(sub);
   }

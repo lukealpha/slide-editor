@@ -72,8 +72,17 @@
       const sub = await QS.fontSubset.subsetWoff(wasm, woff, uniq);
       faces += `@font-face{font-family:'Plex SC';font-weight:${w};src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
     }
-    // 章节编号的后备字体 Jost（Futura 是系统字体，不能打包；Jost 只有 14 KB，整体内嵌）
-    faces += `@font-face{font-family:'Jost';font-weight:500;src:url(${await dataURL(await bytes('vendor/fonts/Jost-500-latin.woff'), 'font/woff')}) format('woff');}\n`;
+    // 章节编号在非 Mac 电脑上的后备字体：本机私有的 Futura ND（商业字体，只为自用内嵌 ASCII 子集；文件不存在就跳过）
+    try {
+      const fnd = await bytes('vendor/fonts/private/FuturaND-Medium.ttf');
+      let ascii = '';
+      for (let i = 32; i < 127; i++) ascii += String.fromCharCode(i);
+      progress(QS.t('exp.subsetFont', { name: 'Futura ND Medium', n: ascii.length }));
+      const sub = await QS.fontSubset.subsetWoff(wasm, fnd, ascii);
+      faces += `@font-face{font-family:'Futura ND Bundled';font-weight:500;src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
+    } catch (e) {
+      console.warn('Futura ND fallback not embedded:', e.message);
+    }
     themeCss = themeCss.replace(/@font-face[^}]*\}\s*/g, '');
 
     progress(QS.t('exp.images'));

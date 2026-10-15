@@ -59,6 +59,7 @@
     'exp.mathFonts': 'Embedding math fonts…',
     'exp.chars': 'Collecting the characters in use…',
     'exp.subset': 'Subsetting IBM Plex Sans SC {w} ({n} characters)…',
+    'exp.subsetFont': 'Subsetting {name} ({n} characters)…',
     'exp.images': 'Embedding images…',
     'exp.html': 'Generating HTML…',
 
@@ -384,6 +385,7 @@
     'exp.mathFonts': '内嵌公式字体…',
     'exp.chars': '统计用到的文字…',
     'exp.subset': '字体子集化：IBM Plex Sans SC {w}（{n} 个字符）…',
+    'exp.subsetFont': '字体子集化：{name}（{n} 个字符）…',
     'exp.images': '内嵌图片…',
     'exp.html': '生成 HTML…',
 
