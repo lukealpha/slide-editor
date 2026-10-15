@@ -47,6 +47,23 @@
   QS.makeBlock = function (deck, type) {
     return Object.assign({ id: QS.newId(deck, 'B'), type, step: 0, anim: 'fade' }, QS.BLOCK_TYPES[type].make());
   };
+  /** 封面布局参数（px，基于 1280×720 画布）。每页封面的 coverLayout 只存改动过的项，其余用这里的默认值。 */
+  QS.COVER_LAYOUT = {
+    left: 32, // 左侧文字的左边距
+    titleTop: 22, // 标题区距顶部
+    titleSize: 62, // 主标题字号
+    altSize: 28, // 第二标题字号
+    textWidth: 600, // 左侧文字栏宽度
+    metaBottom: 112, // 汇报人/副标题组距底部（底部留白）
+    metaGap: 64, // 汇报人与副标题之间的间距
+    showArt: true, // 显示插画
+    artSize: 584, // 插画边长
+    artTop: 24, // 插画距顶部
+    artRight: 30, // 插画距右侧
+    footerBottom: 22, // 页脚距底部
+  };
+  QS.coverLayout = (slide) => Object.assign({}, QS.COVER_LAYOUT, slide.coverLayout || {});
+
   QS.makeSlide = function (deck, type) {
     const s = { id: QS.newId(deck, 'S'), type, title: '', notes: '' };
     if (type === 'content') Object.assign(s, { title: T('default.slideTitle'), layout: 'single', split: 55, blocks: [] });
@@ -281,15 +298,39 @@
     const ctx = { anims: [], mode };
 
     if (slide.type === 'cover') {
+      // 封面由四个模块组成：标题区、汇报人/副标题组、插画、页脚；位置和大小来自 coverLayout
+      const L = QS.coverLayout(slide);
+      const px = (v) => v + 'px';
       const left = el('div', 'qs-cover-text');
-      left.appendChild(el('h1', 'qs-cover-title', QS.inline(slide.title)));
-      if (slide.author) left.appendChild(el('div', 'qs-cover-author', QS.inline(slide.author)));
-      if (slide.subtitle) left.appendChild(el('div', 'qs-cover-sub', QS.inline(slide.subtitle)));
+      Object.assign(left.style, { left: px(L.left), top: px(L.titleTop), width: px(L.textWidth) });
+      const h1 = el('h1', 'qs-cover-title', QS.inline(slide.title));
+      h1.style.fontSize = px(L.titleSize);
+      left.appendChild(h1);
+      if (slide.titleAlt) {
+        const alt = el('div', 'qs-cover-title-alt', QS.inline(slide.titleAlt));
+        alt.style.fontSize = px(L.altSize);
+        left.appendChild(alt);
+      }
       root.appendChild(left);
-      const art = el('div', 'qs-cover-art');
-      if (QS.coverArt) art.innerHTML = QS.coverArt();
-      root.appendChild(art);
-      if (slide.footer) root.appendChild(el('div', 'qs-cover-footer', QS.inline(slide.footer)));
+      if (slide.author || slide.subtitle) {
+        const meta = el('div', 'qs-cover-meta');
+        Object.assign(meta.style, { left: px(L.left), bottom: px(L.metaBottom), width: px(L.textWidth) });
+        meta.style.setProperty('--meta-gap', px(L.metaGap));
+        if (slide.author) meta.appendChild(el('div', 'qs-cover-author', QS.inline(slide.author)));
+        if (slide.subtitle) meta.appendChild(el('div', 'qs-cover-sub', QS.inline(slide.subtitle)));
+        root.appendChild(meta);
+      }
+      if (L.showArt && L.artSize > 0) {
+        const art = el('div', 'qs-cover-art');
+        Object.assign(art.style, { right: px(L.artRight), top: px(L.artTop), width: px(L.artSize), height: px(L.artSize) });
+        if (QS.coverArt) art.innerHTML = QS.coverArt();
+        root.appendChild(art);
+      }
+      if (slide.footer) {
+        const foot = el('div', 'qs-cover-footer', QS.inline(slide.footer));
+        Object.assign(foot.style, { left: px(L.left), bottom: px(L.footerBottom) });
+        root.appendChild(foot);
+      }
     } else if (slide.type === 'section') {
       const box = el('div', 'qs-section-box');
       if (slide.number) box.appendChild(el('div', 'qs-section-num', esc(slide.number)));

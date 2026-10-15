@@ -932,6 +932,7 @@
     sec.appendChild(ref);
     field(sec, s.type === 'content' ? t('ed.title') : t('ed.mainTitle'), textIn(s, 'title', { rows: s.type === 'cover' ? 2 : 0 }), s.type === 'cover' ? t('ed.titleBreakHint') : '');
     if (s.type === 'cover') {
+      field(sec, t('ed.titleAlt'), textIn(s, 'titleAlt', { rows: 2 }), t('ed.titleAltHint'));
       field(sec, t('ed.author'), textIn(s, 'author'));
       field(sec, t('ed.coverSub'), textIn(s, 'subtitle', { rows: 2 }));
       field(sec, t('ed.footer'), textIn(s, 'footer'));
@@ -945,6 +946,7 @@
       if (s.layout === 'split') field(sec, t('ed.leftWidth'), numIn(s, 'split', { range: true, min: 25, max: 75, def: 55, unit: '%' }));
     }
     field(sec, t('ed.notes'), textIn(s, 'notes', { rows: 4, placeholder: t('ed.notesPh') }));
+    if (s.type === 'cover') coverLayoutProps(p, s);
 
     if (s.type === 'content') {
       const o = section(p, t('ed.blocksOnSlide'));
@@ -952,6 +954,47 @@
       refreshOutline();
       if (!(s.blocks || []).length) o.appendChild(el('div', 'ed-empty', t('ed.noBlocks')));
     }
+  }
+
+  /** 封面布局：按模块分组的滑块，拖动时画布实时更新；只把改动过的项写进 coverLayout */
+  function coverLayoutProps(p, s) {
+    const D = QS.COVER_LAYOUT;
+    const lay = new Proxy({}, {
+      get: (_, k) => (s.coverLayout || {})[k],
+      set: (_, k, v) => { (s.coverLayout = s.coverLayout || {})[k] = v; return true; },
+    });
+    const sec = section(p, t('ed.cl.title'));
+    const slider = (key, min, max, step) => numIn(lay, key, { range: true, min, max, step: step || 1, def: D[key], unit: 'px' });
+    const group = (label) => sec.appendChild(el('div', 'ed-subhead', QS.esc(label)));
+
+    group(t('ed.cl.text'));
+    field(sec, t('ed.cl.left'), slider('left', 0, 300));
+    field(sec, t('ed.cl.titleTop'), slider('titleTop', 0, 400));
+    field(sec, t('ed.cl.titleSize'), slider('titleSize', 28, 110));
+    field(sec, t('ed.cl.altSize'), slider('altSize', 14, 56));
+    field(sec, t('ed.cl.textWidth'), slider('textWidth', 240, 1200, 10));
+
+    group(t('ed.cl.meta'));
+    field(sec, t('ed.cl.metaBottom'), slider('metaBottom', 0, 600));
+    field(sec, t('ed.cl.metaGap'), slider('metaGap', 0, 240));
+
+    group(t('ed.cl.art'));
+    checkIn(sec, lay, 'showArt', t('ed.cl.showArt'), { def: D.showArt, structure: true });
+    if (lay.showArt !== false) {
+      field(sec, t('ed.cl.artSize'), slider('artSize', 120, 720, 2));
+      field(sec, t('ed.cl.artTop'), slider('artTop', 0, 400));
+      field(sec, t('ed.cl.artRight'), slider('artRight', 0, 700));
+    }
+
+    group(t('ed.cl.footer'));
+    field(sec, t('ed.cl.footerBottom'), slider('footerBottom', 0, 200));
+
+    const reset = el('button', 'small', t('ed.cl.reset'));
+    reset.onclick = () => {
+      delete s.coverLayout;
+      changed({ structure: true });
+    };
+    sec.appendChild(reset);
   }
 
   function refreshOutline() {

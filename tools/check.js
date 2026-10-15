@@ -48,7 +48,7 @@ const usedTodoFiles = new Set();
   const w = `Slide ${i + 1} ${s.id || ''}`;
   checkId(s.id, 'S', w);
   if (!TYPES[s.type]) errors.push(`${w}: unknown slide type ${s.type}`);
-  for (const k of ['title', 'subtitle', 'author', 'footer', 'notes']) inline(s[k], `${w} ${k}`);
+  for (const k of ['title', 'titleAlt', 'subtitle', 'author', 'footer', 'notes']) inline(s[k], `${w} ${k}`);
   for (const td of s.todos || []) {
     const tw = `${w} | ${td.id || '?'} TODO`;
     checkId(td.id, 'T', tw);

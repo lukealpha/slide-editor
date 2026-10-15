@@ -17,9 +17,6 @@
     const t = (x, y, txt, size, f, extra) => s.push(`<text x="${x}" y="${y}" font-size="${size}" fill="${f}" font-family="KaTeX_Main, 'Times New Roman', serif" ${extra || ''}>${txt}</text>`);
 
     s.push(`<defs>
-      <radialGradient id="qsBall" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset="0.55" stop-color="${L}"/><stop offset="1" stop-color="${A}"/></radialGradient>
-      <radialGradient id="qsBallDark" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="${L}"/><stop offset="1" stop-color="${D}"/></radialGradient>
-      <radialGradient id="qsSphere" cx="38%" cy="32%" r="78%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${P}"/></radialGradient>
       <clipPath id="qsWaveClip"><rect x="0" y="392" width="182" height="208"/></clipPath>
       <clipPath id="qsArch"><path d="M196 600 V262 A122 122 0 0 1 440 262 V600 Z"/></clipPath>
     </defs>`);
@@ -65,7 +62,7 @@
     r(196, 430, 244, 170, G2);
     s.push(`</g>`);
     const cx = 318, cy = 290, R = 92;
-    c(cx, cy, R, 'url(#qsSphere)', `stroke="${INK}" stroke-width="2.5"`);
+    c(cx, cy, R, '#fff', `stroke="${INK}" stroke-width="2.5"`);
     s.push(`<path d="M${cx - R} ${cy} A${R} 28 0 0 0 ${cx + R} ${cy}" fill="none" stroke="${INK}" stroke-width="1.8"/>`);
     s.push(`<path d="M${cx - R} ${cy} A${R} 28 0 0 1 ${cx + R} ${cy}" fill="none" stroke="${G3}" stroke-width="1.5" stroke-dasharray="5 5"/>`);
     l(cx, cy - R - 10, cx, cy + R + 10, G3, 1.5, 'stroke-dasharray="4 4"');
@@ -114,14 +111,11 @@
     /* 9 台阶（右下） */
     s.push(`<path d="M452 600 V442 H600 V600 Z" fill="${P}"/>`);
     s.push(`<path d="M600 442 V600 H452 V572 H490 V542 H526 V512 H562 V478 H600 Z" fill="${INK}"/>`);
-    c(500, 486, 16, 'url(#qsBallDark)');
+    c(500, 486, 16, A);
 
-    /* 10 漂浮的"粒子" */
-    c(190, 132, 13, 'url(#qsBall)');
+    /* 10 点缀：只用纯色扁平圆点，不用渐变 */
     c(446, 172, 9, A);
-    c(176, 404, 22, 'url(#qsBall)');
     c(214, 220, 7, INK);
-    c(434, 236, 15, 'url(#qsBall)');
     c(452, 448, 6, A);
 
     return `<svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">${s.join('')}</svg>`;

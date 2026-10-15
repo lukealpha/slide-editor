@@ -231,3 +231,5 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 .ed-tl-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ed-tl-meta { font-size: 11.5px; color: #8d8d8d; }
 .ed-tl-meta code { font-size: 11px; padding: 0 3px; }
+.ed-subhead { font-size: 12px; font-weight: 600; color: var(--ui-ink); margin: 14px 0 8px; padding-top: 10px; border-top: 1px dashed var(--ui-line); }
+.ed-subhead:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }

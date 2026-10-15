@@ -46,7 +46,7 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 | spacer | `height` |
 
 行内标记：`[[高亮]]`、`{{蓝字}}`、`**加粗**`、`$行内$`、`$$行间$$`、空行分段。
-幻灯片类型：`cover`（title / author / subtitle / footer）、`section`（number / title / subtitle）、`content`（title / layout / split / blocks）。每页都有 `notes` 字段，存讲稿备注。
+幻灯片类型：`cover`（title / titleAlt（主标题下方的灰色第二标题）/ author / subtitle（与 author 组成下部一组）/ footer / coverLayout（可选的布局参数，只存改动过的项，键与默认值见 `QS.COVER_LAYOUT`：left、titleTop、titleSize、altSize、textWidth、metaBottom、metaGap、showArt、artSize、artTop、artRight、footerBottom，单位 px））、`section`（number / title / subtitle）、`content`（title / layout / split / blocks）。每页都有 `notes` 字段，存讲稿备注。
 画布逻辑尺寸 1280×720。正文区从 top 150 到 bottom 48，左右各留 96px，可用高度约 520px。加内容前先估算高度，不要溢出。
 
 ## 动画组件约定
