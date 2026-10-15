@@ -98,7 +98,7 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
 .qs-cover-title-alt { margin-top: 12px; font-weight: 300; font-size: 28px; line-height: 1.3; color: var(--title); }
 .qs-cover-meta { position: absolute; }
 .qs-cover-author { font-size: 24px; }
-.qs-cover-author + .qs-cover-sub { margin-top: var(--meta-gap, 64px); }
+.qs-cover-sub + .qs-cover-author { margin-top: var(--meta-gap, 64px); }
 .qs-cover-sub { font-size: 26px; line-height: 1.5; }
 .qs-cover-art { position: absolute; }
 .qs-cover-art svg { width: 100%; height: 100%; display: block; }

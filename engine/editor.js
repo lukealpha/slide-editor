@@ -933,8 +933,8 @@
     field(sec, s.type === 'content' ? t('ed.title') : t('ed.mainTitle'), textIn(s, 'title', { rows: s.type === 'cover' ? 2 : 0 }), s.type === 'cover' ? t('ed.titleBreakHint') : '');
     if (s.type === 'cover') {
       field(sec, t('ed.titleAlt'), textIn(s, 'titleAlt', { rows: 2 }), t('ed.titleAltHint'));
-      field(sec, t('ed.author'), textIn(s, 'author'));
       field(sec, t('ed.coverSub'), textIn(s, 'subtitle', { rows: 2 }));
+      field(sec, t('ed.author'), textIn(s, 'author'));
       field(sec, t('ed.footer'), textIn(s, 'footer'));
     }
     if (s.type === 'section') {

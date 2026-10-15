@@ -316,8 +316,8 @@
         const meta = el('div', 'qs-cover-meta');
         Object.assign(meta.style, { left: px(L.left), bottom: px(L.metaBottom), width: px(L.textWidth) });
         meta.style.setProperty('--meta-gap', px(L.metaGap));
-        if (slide.author) meta.appendChild(el('div', 'qs-cover-author', QS.inline(slide.author)));
         if (slide.subtitle) meta.appendChild(el('div', 'qs-cover-sub', QS.inline(slide.subtitle)));
+        if (slide.author) meta.appendChild(el('div', 'qs-cover-author', QS.inline(slide.author)));
         root.appendChild(meta);
       }
       if (L.showArt && L.artSize > 0) {
