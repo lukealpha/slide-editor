@@ -105,6 +105,10 @@
   QS.layoutSection = function (root) {
     const list = root.querySelector('.qs-rm');
     if (list && list.offsetHeight) {
+      const inIntro = root.classList.contains('qs-sec-intro');
+      // 最终状态：当前章节高亮，位置在"当前章节居中"与"整体居中"之间加权折中
+      root.classList.add('qs-sec-notrans');
+      root.classList.remove('qs-sec-intro');
       const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
       const listH = list.offsetHeight;
       let top = (SEC.H - listH) / 2;
@@ -114,7 +118,14 @@
         top = Math.min(Math.max(top, SEC.TOP), SEC.H - SEC.BOTTOM - listH);
         if (listH > SEC.H - SEC.TOP - SEC.BOTTOM) top = (SEC.H - listH) / 2;
       }
-      list.style.top = Math.round(top) + 'px';
+      list.dataset.finalTop = Math.round(top);
+      // 入场第一段的状态：所有章节样式一致，列表整体居中
+      root.classList.add('qs-sec-intro');
+      list.dataset.introTop = Math.round((SEC.H - list.offsetHeight) / 2);
+      if (!inIntro) root.classList.remove('qs-sec-intro');
+      list.style.top = (inIntro ? list.dataset.introTop : list.dataset.finalTop) + 'px';
+      void root.offsetHeight;
+      root.classList.remove('qs-sec-notrans');
     }
     const lab = root.querySelector('.qs-sec-label'), num = root.querySelector('.qs-sec-num');
     if (!lab || !num || !lab.isConnected) return;
@@ -134,6 +145,31 @@
     const baseInBox = (size - (D.fontBoundingBoxAscent + D.fontBoundingBoxDescent)) / 2 + D.fontBoundingBoxAscent;
     num.style.left = (labInkLeft + D.actualBoundingBoxLeft) + 'px';
     num.style.top = (SEC.NUM_BOTTOM - zero.actualBoundingBoxDescent - baseInBox) + 'px';
+  };
+
+  /** 入场两段式：先以统一样式、整体居中的状态让所有章节依次冒出；全部停稳后演化出当前章节的高亮和最终位置 */
+  QS.playSectionIntro = function (root) {
+    const list = root.querySelector('.qs-rm');
+    if (!list || list.dataset.introTop === undefined) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return QS.finishSectionIntro(root);
+    clearTimeout(root._secTimer);
+    root.classList.add('qs-sec-notrans', 'qs-sec-intro');
+    list.style.top = list.dataset.introTop + 'px';
+    void root.offsetHeight;
+    root.classList.remove('qs-sec-notrans');
+    // 第一段结束时间 = 路线图开始时间 + 最后一行的错开 + 单行时长 + 短暂停顿
+    const start = parseFloat(getComputedStyle(root).getPropertyValue('--sec-rows')) * 1000 || 0;
+    const settle = start + (list.children.length - 1) * 90 + 620 + 120;
+    root._secTimer = setTimeout(() => {
+      root.classList.remove('qs-sec-intro');
+      list.style.top = list.dataset.finalTop + 'px';
+    }, settle);
+  };
+  QS.finishSectionIntro = function (root) {
+    clearTimeout(root._secTimer);
+    const list = root.querySelector('.qs-rm');
+    root.classList.remove('qs-sec-intro');
+    if (list && list.dataset.finalTop !== undefined) list.style.top = list.dataset.finalTop + 'px';
   };
 
   /* ---------- 动画组件注册 ---------- */
@@ -386,9 +422,10 @@
       const list = el('ol', 'qs-rm');
       secs.forEach((s, i) => {
         const on = i === cur;
-        list.appendChild(el('li', on ? 'on' : '',
+        const li = list.appendChild(el('li', on ? 'on' : '',
           `<span class="n qs-futura">${esc(label(s, i))}</span><span class="t${on ? ' qs-section-title' : ''}">${QS.inline(s.title)}</span>` +
           (on && s.subtitle ? `<span class="s">${QS.inline(s.subtitle)}</span>` : '')));
+        li.style.setProperty('--i', i); // 入场动画按顺序错开
       });
       root.appendChild(list);
     } else {
@@ -457,6 +494,7 @@
       setStep(step, animate) {
         current = step;
         root.classList.toggle('qs-noanim', !animate);
+        if (slide.type === 'section') animate ? QS.playSectionIntro(root) : QS.finishSectionIntro(root);
         root.querySelectorAll('[data-step]').forEach((n) => {
           const s = +n.dataset.step;
           const u = n.dataset.until !== undefined ? +n.dataset.until : Infinity;
@@ -473,6 +511,7 @@
         for (const k of controllers) if (k.id === blockId && k.c.setState) k.c.setState(state);
       },
       destroy() {
+        clearTimeout(root._secTimer);
         for (const k of controllers) if (k.c.destroy) try { k.c.destroy(); } catch (e) {}
         root.remove();
       },
