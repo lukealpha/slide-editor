@@ -179,12 +179,15 @@
    *   副标题：晚一拍被"甩"出来。
    * 所有运动由阻尼振子逐帧积分得到，采样成 Web Animations 关键帧。 */
   function spring(o) {
-    // 阻尼分三段：释放时用 damping；第一次冲过终点后改用 brake 急刹（过冲短）；之后回到较轻的 damping 来回晃（振荡持久）
-    const w = 2 * Math.PI * o.freq, dt = 1 / 240, brake = o.brake === undefined ? o.damping : o.brake;
+    // 阻尼分三段：释放时用 damping；第一次冲过终点后改用 brake 急刹（过冲短）；
+    // 之后进入弛豫：换成更软的弹簧（ringFreq / ringDamping，缺省沿用 freq / damping），慢慢地、松松地晃停
+    const dt = 1 / 240, brake = o.brake === undefined ? o.damping : o.brake;
+    const ringW = 2 * Math.PI * (o.ringFreq || o.freq), ringZ = o.ringDamping === undefined ? o.damping : o.ringDamping;
     let x = o.x0 || 0, v = o.v0 || 0, phase = 0;
     const out = [{ x, v, a: 0 }];
-    for (let t = dt; t < 3; t += dt) {
-      const a = -w * w * (x - 1) - 2 * (phase === 1 ? brake : o.damping) * w * v;
+    for (let t = dt; t < 5; t += dt) {
+      const w = phase === 2 ? ringW : 2 * Math.PI * o.freq, z = phase === 0 ? o.damping : phase === 1 ? brake : ringZ;
+      const a = -w * w * (x - 1) - 2 * z * w * v;
       v += a * dt;
       const px = x;
       x += v * dt;
@@ -226,20 +229,20 @@
 
     // 整个列表：从第一段的居中位置弹到最终位置
     const dList = (+list.dataset.introTop || 0) - (+list.dataset.finalTop || 0);
-    if (dList) play(list, springFrames(spring({ freq: 3.5, damping: 0.4, v0: 0 }), (s) => ({ transform: `translateY(${(dList * (1 - s.x)).toFixed(2)}px)` })));
+    if (dList) play(list, springFrames(spring({ freq: 3.2, damping: 0.35, v0: 0 }), (s) => ({ transform: `translateY(${(dList * (1 - s.x)).toFixed(2)}px)` })));
 
     // 各行：被推开，像波纹一样按与当前章节的距离错开
     rows.forEach((r, i) => {
       const dy = firstRowY[i] - lastRowY[i];
       if (Math.abs(dy) < 0.5) return;
-      play(r, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.5, v0: 3 }), (s) => ({ transform: `translateY(${(dy * (1 - s.x)).toFixed(2)}px)` })), { delay: Math.abs(i - cur) * 28 });
+      play(r, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.5, v0: 3, ringFreq: 2.8, ringDamping: 0.15 }), (s) => ({ transform: `translateY(${(dy * (1 - s.x)).toFixed(2)}px)` })), { delay: Math.abs(i - cur) * 28 });
     });
 
     if (title) {
       // 标题：字号已是最终值，用 transform 从第一段的尺寸和位置弹过去（左上角为原点）
       const s0 = firstSize / lastSize, dx = firstTitle.x - lastTitle.x, dy = firstTitle.y - lastTitle.y;
       title.style.transformOrigin = '0 0';
-      play(title, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.7, v0: 1 }), (s) => {
+      play(title, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.7, v0: 1, ringFreq: 2.8, ringDamping: 0.15 }), (s) => {
         const p = 1 - s.x, sc = 1 - (1 - s0) * p;
         return { transform: `translate(${(dx * p).toFixed(2)}px, ${(dy * p).toFixed(2)}px) scale(${sc.toFixed(4)})` };
       }));
@@ -248,12 +251,12 @@
     if (num) {
       num.style.display = 'inline-block';
       num.style.transformOrigin = '0 70%';
-      play(num, springFrames(spring({ x0: 1, v0: 3.5, freq: 4.25, damping: 0.2 }), (s) => ({ transform: `scale(${(1 + (s.x - 1) * 0.9).toFixed(4)})` })));
+      play(num, springFrames(spring({ x0: 1, v0: 2.5, freq: 3.3, damping: 0.15 }), (s) => ({ transform: `scale(${(1 + (s.x - 1) * 0.9).toFixed(4)})` })));
       play(num, { frames: [{ color: '#a8a8a8' }, { color: getComputedStyle(num).color }], duration: 140 }, { easing: 'ease-out' });
     }
     if (line) {
       // 线条：极大初速度弹出；粗细随速度和加速度变化（快时拉细，急停时压扁）
-      const S = spring({ freq: 4.5, damping: 0.24, brake: 1.9, v0: 4 });
+      const S = spring({ freq: 4.5, damping: 0.24, brake: 1.9, v0: 4, ringFreq: 3.3, ringDamping: 0.15 });
       const vmax = Math.max(...S.map((q) => Math.abs(q.v))), amax = Math.max(...S.slice(4).map((q) => Math.abs(q.a))) || 1;
       play(line, springFrames(S, (s) => {
         const sp = Math.abs(s.v) / vmax, squash = (Math.abs(s.a) / amax) * (1 - sp);
@@ -262,7 +265,7 @@
       }));
     }
     if (sub) {
-      play(sub, springFrames(spring({ freq: 4, damping: 0.3, v0: 0 }), (s, u) => ({
+      play(sub, springFrames(spring({ freq: 3.2, damping: 0.2, v0: 0 }), (s, u) => ({
         transform: `translateY(${(-22 * (1 - s.x)).toFixed(2)}px)`,
         opacity: Math.min(1, u * 5).toFixed(3),
       })), { delay: 50 });
