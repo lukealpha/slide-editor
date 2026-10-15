@@ -18,6 +18,7 @@
     for (const s of deck.slides) {
       ids.add(s.id);
       for (const b of s.blocks || []) ids.add(b.id);
+      for (const td of s.todos || []) ids.add(td.id);
     }
     return ids;
   };
@@ -39,7 +40,6 @@
     image: { make: () => ({ src: '', width: 60, caption: '' }) },
     circuit: { make: () => ({ spec: 'qubits 2\nH 0\nC0 X 1', stepwise: 'none', scale: 1 }) },
     anim: { make: () => ({ component: '', params: {}, height: 360 }) },
-    todo: { make: () => ({ text: T('default.todo') }) },
     spacer: { make: () => ({ height: 24 }) },
   };
   QS.ANIMS = { fade: 1, rise: 1, none: 1 }; // 入场效果；名称见 effect.* 词条
@@ -53,6 +53,31 @@
     if (type === 'section') Object.assign(s, { title: T('default.sectionTitle'), subtitle: '', number: '' });
     if (type === 'cover') Object.assign(s, { title: T('default.coverTitle'), subtitle: '', author: '', footer: '' });
     return s;
+  };
+
+  /* ---------- TODO 标注 ----------
+   * 每页的 todos 数组：{ id: 'T-XXX', text, block, fx, fy } 钉在某个内容块上（fx/fy 为块内的相对位置 0–1，块移动时跟着走）
+   *                    或 { id, text, x, y } 自由放在 1280×720 画布坐标上。
+   * TODO 不是内容块，不参与排版，只在编辑器里显示。 */
+  QS.todoCount = function (deck) {
+    return deck.slides.reduce((a, s) => a + (s.todos || []).length, 0);
+  };
+
+  /** 旧版数据迁移：把 type: 'todo' 的内容块转成钉在前一个块下沿的 TODO 标注 */
+  QS.migrate = function (deck) {
+    for (const s of deck.slides || []) {
+      if (!s.blocks || !s.blocks.some((b) => b.type === 'todo')) continue;
+      const keep = [];
+      for (const b of s.blocks) {
+        if (b.type !== 'todo') { keep.push(b); continue; }
+        const prev = keep[keep.length - 1];
+        const td = { id: b.id.replace(/^B-/, 'T-'), text: b.text || '' };
+        Object.assign(td, prev ? { block: prev.id, fx: 0.02, fy: 1 } : { x: 110, y: 160 });
+        (s.todos = s.todos || []).push(td);
+      }
+      s.blocks = keep;
+    }
+    return deck;
   };
 
   /* ---------- 动画组件注册 ---------- */
@@ -224,9 +249,6 @@
       ctx.anims.push({ block: b, el: e, def });
       return e;
     },
-    todo(b) {
-      return el('div', 'qs-todo', '<span class="qs-todo-tag">TODO</span>' + esc(b.text || '').replace(/\n/g, '<br>'));
-    },
     spacer(b) {
       const e = el('div', 'qs-spacer');
       e.style.height = (b.height || 24) + 'px';
@@ -241,7 +263,6 @@
     wrap.dataset.blockId = b.id;
     wrap.dataset.step = b.step || 0;
     wrap.dataset.anim = b.anim || 'fade';
-    if (b.type === 'todo') wrap.classList.add('qs-editor-only');
     wrap.appendChild(inner);
     return wrap;
   }

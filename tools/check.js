@@ -15,6 +15,7 @@ try {
 }
 const katex = require(path.join(ROOT, 'vendor/katex/katex.min.js'));
 const QS = load('engine/i18n.js', 'engine/core.js', 'engine/circuit.js');
+QS.migrate(deck);
 
 const animIds = new Set();
 for (const f of animationFiles()) {
@@ -22,7 +23,7 @@ for (const f of animationFiles()) {
   for (const m of src.matchAll(/registerAnimation\(\{\s*id:\s*['"]([^'"]+)['"]/g)) animIds.add(m[1]);
 }
 
-const ID_RE = { S: /^S-[2-9A-HJ-NP-Z]{3}$/, B: /^B-[2-9A-HJ-NP-Z]{3}$/ };
+const ID_RE = { S: /^S-[2-9A-HJ-NP-Z]{3}$/, B: /^B-[2-9A-HJ-NP-Z]{3}$/, T: /^T-[2-9A-HJ-NP-Z]{3}$/ };
 const seen = new Map();
 function checkId(id, kind, where) {
   if (!id) return errors.push(`${where}: missing id`);
@@ -47,6 +48,12 @@ const TYPES = { cover: 1, section: 1, content: 1 };
   checkId(s.id, 'S', w);
   if (!TYPES[s.type]) errors.push(`${w}: unknown slide type ${s.type}`);
   for (const k of ['title', 'subtitle', 'author', 'footer', 'notes']) inline(s[k], `${w} ${k}`);
+  for (const td of s.todos || []) {
+    const tw = `${w} | ${td.id || '?'} TODO`;
+    checkId(td.id, 'T', tw);
+    if (td.block && !(s.blocks || []).some((b) => b.id === td.block)) warns.push(`${tw}: pinned block ${td.block} no longer exists (shown at its last free position)`);
+    warns.push(`${tw}${td.block ? ' on ' + td.block : ` at (${Math.round(td.x || 0)}, ${Math.round(td.y || 0)})`}: ${String(td.text || '').replace(/\s+/g, ' ')}`);
+  }
   if (s.type !== 'content') return;
   if (!Array.isArray(s.blocks)) return errors.push(`${w}: missing blocks array`);
   s.blocks.forEach((b) => {
@@ -70,7 +77,6 @@ const TYPES = { cover: 1, section: 1, content: 1 };
       if (!b.src) warns.push(`${bw}: no image selected`);
       else if (!fs.existsSync(resolve(b.src))) errors.push(`${bw}: image not found: ${b.src}`);
     }
-    if (b.type === 'todo') warns.push(`${bw}: TODO — ${String(b.text || '').replace(/\s+/g, ' ')}`);
   });
 });
 

@@ -13,7 +13,6 @@
     'type.image': 'Image',
     'type.circuit': 'Circuit',
     'type.anim': 'Animation',
-    'type.todo': 'TODO',
     'type.spacer': 'Spacer',
     'effect.fade': 'Fade in',
     'effect.rise': 'Rise & fade',
@@ -25,7 +24,6 @@
     'default.list': 'First item\nSecond item',
     'default.box.label': 'Example 1',
     'default.box.body': 'Text inside the box. [[Highlights]] and $math$ work here too.',
-    'default.todo': 'Describe what you want Claude to add here',
     'default.slideTitle': 'New slide',
     'default.sectionTitle': 'Section title',
     'default.coverTitle': 'Title',
@@ -108,8 +106,20 @@
     'ed.noSteps': 'This slide has no step animations',
 
     /* editor: context menu / block ops */
+    'ed.addTodo': '+ TODO',
+    'ed.addTodoTip': 'Pin a TODO note anywhere on the slide — it never takes up layout space',
+    'ed.placeTodo': 'Click where the TODO should go (Esc to cancel)',
+    'ed.showTodos': 'Show TODOs',
+    'ed.menu.addTodoHere': 'Add TODO here',
+    'ed.menu.delTodo': 'Delete TODO',
+    'ed.todo.title': 'TODO note',
+    'ed.todo.empty': '(empty TODO)',
+    'ed.todo.pinnedTo': 'Pinned to {id} ({type}) — it follows the block when the layout changes.',
+    'ed.todo.free': 'Free position ({x}, {y}) on the 1280×720 slide.',
+    'ed.todo.dragHint': 'Drag the pin to move it; drop it on a block to attach it there. TODO notes take no layout space and only appear in the editor — never when presenting or exporting.',
+    'ed.todo.deleted': 'Deleted {id} (⌘Z to undo)',
+    'ed.ref.todo': '[{page} | TODO {id} at {where}] "{snip}"',
     'ed.menu.copyRef': 'Copy reference (for Claude)',
-    'ed.menu.insertTodo': 'Insert TODO after',
     'ed.menu.dup': 'Duplicate block',
     'ed.menu.up': 'Move up',
     'ed.menu.down': 'Move down',
@@ -209,7 +219,6 @@
     'ed.f.animSteps': 'This component has {n} internal stage(s) and occupies steps {a}–{b}.',
     'ed.f.todo': 'Request for Claude',
     'ed.f.todoPh': 'e.g. Put an animation here showing how each qubit\'s phase accumulates in a 3-qubit QFT',
-    'ed.f.todoHint': 'TODO blocks only show in the editor; they are hidden when presenting and exporting. When ready, tell Claude "handle the TODOs".',
     'ed.appear': 'Appearance',
     'ed.appearStep': 'Appears at step',
     'ed.appearStepHint': '0 = visible as soon as the slide opens; 1 = appears after pressing "next" once; and so on. Blocks with the same step appear together.',
@@ -242,7 +251,7 @@
       <p>Every block has an "appears at step" number: 0 shows it as soon as the slide opens, 1 after pressing "next" once, and so on. Lists can reveal item by item; in a formula block, separate several formulas with a line containing only <code>&gt;&gt;&gt;</code> and they morph in place one after another; circuits can reveal gate by gate. Use "Step preview" below the canvas to inspect each step.</p>
       <h4>Working with Claude</h4>
       <p>① Every block has a permanent ID (e.g. <code>B-7K2</code>) that never changes when you insert or reorder. Right-click a block → "Copy reference" and paste it to Claude to pinpoint it.<br>
-         ② Add a <b>TODO</b> block where you want something, describe what you want, then tell Claude "handle the TODOs".<br>
+         ② Click <b>+ TODO</b> above the canvas (or right-click anywhere on a slide, including covers) to pin a TODO note exactly where you want something — it takes no layout space. Describe what you want, then tell Claude "handle the TODOs".<br>
          ③ When Claude edits the file, the editor reloads automatically. Not happy? Press ⌘Z. For longer-term history, manage the slide folder with Git (see the Git button).</p>
       <h4>Keyboard shortcuts</h4>
       <table class="ed-help-tab">
@@ -280,7 +289,7 @@
     'ed.expWrite': 'Writing file…',
     'ed.expDoneTitle': 'Export complete',
     'ed.expDoneBody': '<p>Single-file presentation created:<br><code>{path}</code><br>Size: {size} MB</p><p>Copy this file to any computer and double-click it to present in Chrome / Edge / Safari — no internet or installation needed. Press <b>P</b> after opening for presenter view.</p>',
-    'ed.expTodos': '<p class="ed-warn">Note: {n} TODO block(s) are still unhandled (they are hidden when presenting).</p>',
+    'ed.expTodos': '<p class="ed-warn">Note: {n} TODO note(s) are still open (they never appear in the export).</p>',
     'ed.expReveal': 'Show in Finder',
     'ed.expFailTitle': 'Export failed',
     'ed.fatalTitle': 'Could not load deck.json',
@@ -295,7 +304,6 @@
     'type.image': '图片',
     'type.circuit': '量子线路',
     'type.anim': '动画',
-    'type.todo': 'TODO 占位',
     'type.spacer': '间隔',
     'effect.fade': '淡入',
     'effect.rise': '上浮淡入',
@@ -307,7 +315,6 @@
     'default.list': '第一条\n第二条',
     'default.box.label': '例 1',
     'default.box.body': '框内文字，同样支持 [[高亮]] 和 $公式$。',
-    'default.todo': '在这里写给 Claude 的需求',
     'default.slideTitle': '新的一页',
     'default.sectionTitle': '章节标题',
     'default.coverTitle': '标题',
@@ -383,8 +390,20 @@
     'ed.ghostHint': '未出现的内容在预览中显示为淡影',
     'ed.noSteps': '本页没有分步动画',
 
+    'ed.addTodo': '+ TODO',
+    'ed.addTodoTip': '在页面任意位置钉一个 TODO 标注，不占版面',
+    'ed.placeTodo': '点击要放 TODO 的位置（Esc 取消）',
+    'ed.showTodos': '显示 TODO',
+    'ed.menu.addTodoHere': '在这里添加 TODO',
+    'ed.menu.delTodo': '删除 TODO',
+    'ed.todo.title': 'TODO 标注',
+    'ed.todo.empty': '（空 TODO）',
+    'ed.todo.pinnedTo': '钉在 {id}（{type}）上，排版变化时会跟着这个块移动。',
+    'ed.todo.free': '自由位置（{x}, {y}），坐标基于 1280×720 画布。',
+    'ed.todo.dragHint': '拖动图钉可以移动它；拖到某个内容块上就会钉在那个块上。TODO 标注不占版面，只在编辑器里显示，放映和导出时都不会出现。',
+    'ed.todo.deleted': '已删除 {id}（⌘Z 可撤销）',
+    'ed.ref.todo': '【{page}｜TODO {id} 位于 {where}】“{snip}”',
     'ed.menu.copyRef': '复制引用（发给 Claude）',
-    'ed.menu.insertTodo': '在后面插入 TODO',
     'ed.menu.dup': '复制这个块',
     'ed.menu.up': '上移',
     'ed.menu.down': '下移',
@@ -482,7 +501,6 @@
     'ed.f.animSteps': '这个组件内部有 {n} 个动画阶段，会占用步骤 {a}–{b}。',
     'ed.f.todo': '给 Claude 的需求',
     'ed.f.todoPh': '例如：在这里放一个动画，演示 3 比特 QFT 中每个比特的相位如何累积',
-    'ed.f.todoHint': 'TODO 块只在编辑器里显示，放映和导出时会自动隐藏。写好后告诉 Claude"处理 TODO"即可。',
     'ed.appear': '出现方式',
     'ed.appearStep': '出现步骤',
     'ed.appearStepHint': '0 = 翻到本页就显示；1 = 按一次"下一步"后出现；依此类推。步骤号相同的块会同时出现。',
@@ -513,7 +531,7 @@
       <p>每个内容块都有"出现步骤"：0 表示翻到本页就显示，1 表示按一次"下一步"后出现，以此类推。列表可以逐条出现；公式框里用单独一行 <code>&gt;&gt;&gt;</code> 隔开多个公式，会在原位依次变换；线路可以逐门出现。画布下方的"步骤预览"可以查看每一步的状态。</p>
       <h4>和 Claude 协作</h4>
       <p>① 每个块都有固定编号（如 <code>B-7K2</code>），插入或排序都不会变。右键块 →"复制引用"，粘贴给 Claude 即可精确定位。<br>
-         ② 在想加内容的位置添加一个 <b>TODO 占位</b>块并写下需求，然后告诉 Claude"处理 TODO"。<br>
+         ② 点画布上方的 <b>+ TODO</b>（或在任何页面上右键，包括封面），在想加内容的位置钉一个 TODO 标注并写下需求，它不占版面。然后告诉 Claude"处理 TODO"。<br>
          ③ Claude 修改文件后，编辑器会自动刷新；如果不满意，按 ⌘Z 撤销；更长期的版本管理请用 Git 管理幻灯片文件夹（见 Git 按钮）。</p>
       <h4>快捷键</h4>
       <table class="ed-help-tab">
@@ -551,7 +569,7 @@
     'ed.expWrite': '写入文件…',
     'ed.expDoneTitle': '导出完成',
     'ed.expDoneBody': '<p>已生成单文件演示：<br><code>{path}</code><br>大小：{size} MB</p><p>把这个文件拷到任何电脑上，用 Chrome / Edge / Safari 双击打开即可放映，不需要联网，也不需要安装任何东西。打开后按 <b>P</b> 可以进入演讲者视图。</p>',
-    'ed.expTodos': '<p class="ed-warn">注意：还有 {n} 个 TODO 块没处理（放映时已自动隐藏）。</p>',
+    'ed.expTodos': '<p class="ed-warn">注意：还有 {n} 个 TODO 标注没处理（导出文件里不会出现）。</p>',
     'ed.expReveal': '在访达中显示',
     'ed.expFailTitle': '导出失败',
     'ed.fatalTitle': '无法载入 deck.json',

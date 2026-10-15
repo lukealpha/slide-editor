@@ -14,6 +14,9 @@
     version: null,
     slideIdx: 0,
     blockId: null,
+    todoId: null, // 选中的 TODO 标注
+    showTodos: true,
+    placing: false, // 正在放置新的 TODO
     previewStep: null, // null = 最终状态
     showIds: true,
     dirty: false,
@@ -33,6 +36,7 @@
   /* ================= 数据辅助 ================= */
   const slide = () => E.deck.slides[E.slideIdx];
   const block = () => (slide().blocks || []).find((b) => b.id === E.blockId) || null;
+  const todo = () => (slide().todos || []).find((x) => x.id === E.todoId) || null;
   const typeName = (b) => (QS.BLOCK_TYPES[b.type] ? t('type.' + b.type) : b.type);
   const slideTypeName = (type) => t('slide.' + type);
 
@@ -45,7 +49,6 @@
     else if (b.type === 'image') s = b.src || t('core.noImage');
     else if (b.type === 'circuit') s = b.spec;
     else if (b.type === 'anim') s = QS.tl((QS.animations[b.component] || {}).name) || b.component || t('core.animNone');
-    else if (b.type === 'todo') s = b.text;
     s = String(s || '').replace(/\s+/g, ' ').trim();
     return s.length > 28 ? s.slice(0, 28) + '…' : s;
   }
@@ -53,6 +56,11 @@
     const s = slide();
     const page = t('ed.refSlide', { i: E.slideIdx + 1, id: s.id });
     if (!b) return t('ed.ref.slide', { page, title: String(s.title || '').replace(/\s+/g, ' ') });
+    if (/^T-/.test(b.id)) {
+      const pb = b.block && (s.blocks || []).find((x) => x.id === b.block);
+      const where = pb ? `${pb.id} ${typeName(pb)}` : `(${Math.round(b.x || 0)}, ${Math.round(b.y || 0)})`;
+      return t('ed.ref.todo', { page, id: b.id, where, snip: String(b.text || '').replace(/\s+/g, ' ').trim() });
+    }
     return t('ed.ref.block', { page, id: b.id, type: typeName(b), snip: snippet(b) });
   }
   function copyRef(b) {
@@ -171,7 +179,7 @@
   }
   async function reloadFromDisk(msg) {
     const res = await fetch('deck.json?t=' + Date.now(), { cache: 'no-store' });
-    const deck = await res.json();
+    const deck = QS.migrate(await res.json());
     const v = (await (await fetch('api/version', { cache: 'no-store' })).json()).version;
     const keepSlide = slide() && slide().id, keepBlock = E.blockId;
     if (E.groupTimer) closeGroup();
@@ -229,7 +237,9 @@
       <div class="ed-canvas-head">
         <span id="ed-slide-ref"></span>
         <button id="ed-copy-slide-ref" class="small">${t('ed.copySlideRef')}</button>
+        <button id="ed-add-todo" class="small ed-add-todo" title="${t('ed.addTodoTip')}">${t('ed.addTodo')}</button>
         <span class="ed-flex"></span>
+        <label class="ed-check"><input type="checkbox" id="ed-show-todos" checked> ${t('ed.showTodos')}</label>
         <label class="ed-check"><input type="checkbox" id="ed-show-ids" checked> ${t('ed.showIds')}</label>
       </div>
       <div class="ed-canvas"><div class="ed-stage"></div></div>
@@ -260,6 +270,11 @@
       E.showIds = e.target.checked;
       renderCanvas();
     };
+    $('#ed-show-todos').onchange = (e) => {
+      E.showTodos = e.target.checked;
+      renderCanvas();
+    };
+    $('#ed-add-todo').onclick = () => setPlacing(!E.placing);
     $$('.ed-slide-add button').forEach((b) => (b.onclick = () => addSlide(b.dataset.add)));
 
     const canvas = $('.ed-canvas');
@@ -310,7 +325,7 @@
       const item = el('div', 'ed-slide-item' + (i === E.slideIdx ? ' active' : ''));
       item.draggable = true;
       item.dataset.idx = i;
-      const hasTodo = (s.blocks || []).some((b) => b.type === 'todo');
+      const hasTodo = (s.todos || []).length > 0;
       item.innerHTML = `<div class="ed-slide-meta"><b>${i + 1}</b><span class="ed-sid">${s.id}</span>${hasTodo ? `<span class="ed-todo-dot" title="${t('ed.slideHasTodo')}">TODO</span>` : ''}
         <span class="ed-flex"></span><button class="tiny" data-act="dup" title="${t('ed.dupSlide')}">⧉</button><button class="tiny" data-act="del" title="${t('ed.delSlide')}">✕</button></div>
         <div class="ed-thumb"></div>`;
@@ -367,23 +382,24 @@
     thumbTimer = setTimeout(() => drawThumb(i), 400);
   }
   function updateTodoBtn() {
-    const n = E.deck.slides.reduce((a, s) => a + (s.blocks || []).filter((b) => b.type === 'todo').length, 0);
+    const n = QS.todoCount(E.deck);
     const b = $('#ed-todo');
     b.textContent = 'TODO ' + n;
     b.style.display = n ? '' : 'none';
   }
   function nextTodo() {
     const all = [];
-    E.deck.slides.forEach((s, i) => (s.blocks || []).forEach((b) => b.type === 'todo' && all.push([i, b.id])));
+    E.deck.slides.forEach((s, i) => (s.todos || []).forEach((x) => all.push([i, x.id])));
     if (!all.length) return;
-    let k = all.findIndex(([i, id]) => i === E.slideIdx && id === E.blockId);
+    let k = all.findIndex(([i, id]) => i === E.slideIdx && id === E.todoId);
     const [i, id] = all[(k + 1) % all.length];
-    selectSlide(i, id);
+    selectSlide(i, null, id);
   }
 
-  function selectSlide(i, blockId) {
+  function selectSlide(i, blockId, todoId) {
     E.slideIdx = Math.max(0, Math.min(E.deck.slides.length - 1, i));
     E.blockId = blockId || null;
+    E.todoId = todoId || null;
     E.previewStep = null;
     $$('.ed-slide-item').forEach((n) => n.classList.toggle('active', +n.dataset.idx === E.slideIdx));
     const act = $('.ed-slide-item.active');
@@ -393,7 +409,16 @@
   }
   function selectBlock(id) {
     E.blockId = id;
+    E.todoId = null;
     $$('.ed-stage .qs-block').forEach((n) => n.classList.toggle('ed-selected', n.dataset.blockId === id));
+    $$('.ed-stage .ed-pin').forEach((n) => n.classList.remove('sel'));
+    renderProps();
+  }
+  function selectTodo(id) {
+    E.todoId = id;
+    E.blockId = null;
+    $$('.ed-stage .qs-block').forEach((n) => n.classList.remove('ed-selected'));
+    $$('.ed-stage .ed-pin').forEach((n) => n.classList.toggle('sel', n.dataset.todoId === id));
     renderProps();
   }
 
@@ -456,6 +481,7 @@
     const step = E.previewStep === null ? max : E.previewStep;
     root.classList.toggle('qs-ghost', E.previewStep !== null);
     E.view.setStep(step, false);
+    drawPins();
     $('#ed-slide-ref').innerHTML = t('ed.slideRef', { i: E.slideIdx + 1, n: E.deck.slides.length, id: s.id, type: slideTypeName(s.type) });
     renderStepbar(max);
   }
@@ -500,28 +526,159 @@
   }
 
   function onCanvasClick(e) {
-    if (e.target.closest('.qs-anim') && E.blockId) {
-      // 允许直接操作交互动画，同时选中它
+    if (E.placing) {
+      if (e.target.closest('.qs-slide')) addTodoAt(slidePoint(e.clientX, e.clientY));
+      setPlacing(false);
+      return;
     }
+    if (e.target.closest('.ed-pin')) return;
     const w = e.target.closest('.qs-block');
     if (w) selectBlock(w.dataset.blockId);
     else if (e.target.closest('.qs-slide')) selectBlock(null);
   }
 
   function onCanvasMenu(e) {
-    const w = e.target.closest('.qs-block');
-    if (!w) return;
+    if (!e.target.closest('.qs-slide')) return;
     e.preventDefault();
-    selectBlock(w.dataset.blockId);
-    const b = block();
-    menu(e.clientX, e.clientY, [
-      [t('ed.menu.copyRef'), () => copyRef(b)],
-      [t('ed.menu.insertTodo'), () => insertBlock('todo')],
-      [t('ed.menu.dup'), () => dupBlock()],
-      [t('ed.menu.up'), () => moveBlock(-1)],
-      [t('ed.menu.down'), () => moveBlock(1)],
-      [t('ed.menu.del'), () => delBlock()],
-    ]);
+    setPlacing(false);
+    const pin = e.target.closest('.ed-pin');
+    if (pin) {
+      selectTodo(pin.dataset.todoId);
+      const td = todo();
+      return menu(e.clientX, e.clientY, [
+        [t('ed.menu.copyRef'), () => copyRef(td)],
+        [t('ed.menu.delTodo'), () => delTodo()],
+      ]);
+    }
+    const pt = slidePoint(e.clientX, e.clientY);
+    const items = [[t('ed.menu.addTodoHere'), () => addTodoAt(pt)]];
+    const w = e.target.closest('.qs-block');
+    if (w) {
+      selectBlock(w.dataset.blockId);
+      const b = block();
+      items.push(
+        [t('ed.menu.copyRef'), () => copyRef(b)],
+        [t('ed.menu.dup'), () => dupBlock()],
+        [t('ed.menu.up'), () => moveBlock(-1)],
+        [t('ed.menu.down'), () => moveBlock(1)],
+        [t('ed.menu.del'), () => delBlock()]
+      );
+    }
+    menu(e.clientX, e.clientY, items);
+  }
+
+  /* ================= TODO 标注（图钉，不占版面，只在编辑器里显示） ================= */
+  function slideBox() {
+    const r = E.view.root.getBoundingClientRect();
+    return { r, k: r.width / QS.W };
+  }
+  function slidePoint(cx, cy) {
+    const { r, k } = slideBox();
+    return { x: Math.max(0, Math.min(QS.W, (cx - r.left) / k)), y: Math.max(0, Math.min(QS.H, (cy - r.top) / k)) };
+  }
+  function blockRect(id) {
+    const n = E.view.root.querySelector(`.qs-block[data-block-id="${id}"]`);
+    if (!n) return null;
+    const { r, k } = slideBox();
+    const b = n.getBoundingClientRect();
+    return { x: (b.left - r.left) / k, y: (b.top - r.top) / k, w: b.width / k, h: b.height / k };
+  }
+  function todoPos(td) {
+    if (td.block) {
+      const b = blockRect(td.block);
+      if (b) return { x: b.x + (td.fx || 0) * b.w, y: b.y + (td.fy || 0) * b.h };
+    }
+    return { x: td.x == null ? 110 : td.x, y: td.y == null ? 160 : td.y };
+  }
+  /** 根据位置决定锚点：落在内容块上就钉在块上（相对位置），否则用画布坐标 */
+  function anchorAt(pt) {
+    const { r, k } = slideBox();
+    const hit = document.elementsFromPoint(r.left + pt.x * k, r.top + pt.y * k)
+      .map((n) => n.closest && n.closest('.qs-block'))
+      .find((n) => n && E.view.root.contains(n));
+    const a = { x: Math.round(pt.x), y: Math.round(pt.y) };
+    if (hit) {
+      const b = blockRect(hit.dataset.blockId);
+      a.block = hit.dataset.blockId;
+      a.fx = +Math.max(0, Math.min(1, (pt.x - b.x) / (b.w || 1))).toFixed(3);
+      a.fy = +Math.max(0, Math.min(1, (pt.y - b.y) / (b.h || 1))).toFixed(3);
+    }
+    return a;
+  }
+  function setAnchor(td, pt) {
+    delete td.block; delete td.fx; delete td.fy;
+    Object.assign(td, anchorAt(pt));
+  }
+  function setPlacing(on) {
+    E.placing = on;
+    $('.ed-canvas').classList.toggle('placing', on);
+    $('#ed-add-todo').classList.toggle('on', on);
+    if (on) toast(t('ed.placeTodo'));
+  }
+  function addTodoAt(pt) {
+    const s = slide();
+    const td = { id: QS.newId(E.deck, 'T'), text: '' };
+    setAnchor(td, pt);
+    (s.todos = s.todos || []).push(td);
+    E.todoId = td.id;
+    E.blockId = null;
+    changed({ structure: true });
+    renderCanvas();
+    setTimeout(() => { const f = $('.ed-props [data-main]'); if (f) f.focus(); }, 0);
+  }
+  function delTodo() {
+    const s = slide(), td = todo();
+    if (!td) return;
+    s.todos.splice(s.todos.indexOf(td), 1);
+    if (!s.todos.length) delete s.todos;
+    E.todoId = null;
+    changed({ structure: true });
+    toast(t('ed.todo.deleted', { id: td.id }));
+  }
+  function drawPins() {
+    const s = slide();
+    if (!E.showTodos || !(s.todos || []).length) return;
+    const layer = el('div', 'ed-pins');
+    E.view.root.appendChild(layer);
+    s.todos.forEach((td, i) => {
+      const p = todoPos(td);
+      const pin = el('div', 'ed-pin' + (td.id === E.todoId ? ' sel' : '') + (p.x > QS.W - 380 ? ' flip' : ''));
+      pin.dataset.todoId = td.id;
+      pin.style.left = p.x + 'px';
+      pin.style.top = p.y + 'px';
+      const txt = String(td.text || '').trim() || t('ed.todo.empty');
+      pin.innerHTML = `<span class="ed-pin-dot">${i + 1}</span><span class="ed-pin-text">${QS.esc(txt)}</span>`;
+      pin.title = td.id;
+      pin.addEventListener('mousedown', (e) => startPinDrag(e, td, pin));
+      layer.appendChild(pin);
+    });
+  }
+  function startPinDrag(e, td, pin) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const start = { x: e.clientX, y: e.clientY };
+    let moved = false, pt = null;
+    const move = (ev) => {
+      if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 4) return;
+      moved = true;
+      pin.classList.add('dragging');
+      pt = slidePoint(ev.clientX, ev.clientY);
+      pin.style.left = pt.x + 'px';
+      pin.style.top = pt.y + 'px';
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (!moved) return selectTodo(td.id);
+      setAnchor(td, pt); // 拖动时图钉不接收鼠标，可以命中下面的内容块
+      E.todoId = td.id;
+      E.blockId = null;
+      changed({ structure: true });
+      renderCanvas();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
   }
 
   /* ================= 内容块操作 ================= */
@@ -588,8 +745,9 @@
   function renderProps() {
     const p = $('.ed-props');
     p.innerHTML = '';
-    const b = block();
-    if (b) blockProps(p, b);
+    const b = block(), td = todo();
+    if (td) todoProps(p, td);
+    else if (b) blockProps(p, b);
     else slideProps(p, slide());
     if (slide().type === 'content') palette(p);
   }
@@ -774,10 +932,37 @@
     const sec = section(p, block() ? t('ed.addAfter') : t('ed.addBlock'));
     sec.classList.add('ed-palette');
     for (const type of Object.keys(QS.BLOCK_TYPES)) {
-      const b = el('button', 'small' + (type === 'todo' ? ' ed-pal-todo' : ''), t('type.' + type));
+      const b = el('button', 'small', t('type.' + type));
       b.onclick = () => insertBlock(type);
       sec.appendChild(b);
     }
+  }
+
+  function todoProps(p, td) {
+    const s = slide();
+    const top = el('div', 'ed-back');
+    const back = el('button', 'small', t('ed.backToSlide'));
+    back.onclick = () => selectBlock(null);
+    top.appendChild(back);
+    p.appendChild(top);
+    const sec = section(p, t('ed.todo.title'));
+    const ref = el('div', 'ed-idrow', `<code>${td.id}</code><span class="ed-flex"></span>`);
+    const cb = el('button', 'small', t('ed.copyRef'));
+    cb.title = t('ed.copyRefTip');
+    cb.onclick = () => copyRef(td);
+    ref.appendChild(cb);
+    sec.appendChild(ref);
+    field(sec, t('ed.f.todo'), textIn(td, 'text', { rows: 6, main: true, placeholder: t('ed.f.todoPh') }));
+    const pb = td.block && (s.blocks || []).find((x) => x.id === td.block);
+    sec.appendChild(el('div', 'ed-desc', pb
+      ? QS.esc(t('ed.todo.pinnedTo', { id: pb.id, type: typeName(pb) }))
+      : QS.esc(t('ed.todo.free', { x: Math.round(td.x || 0), y: Math.round(td.y || 0) }))));
+    sec.appendChild(el('p', 'ed-hint', QS.esc(t('ed.todo.dragHint'))));
+    const a = section(p, '');
+    a.classList.add('ed-actions');
+    const del = el('button', 'small danger', t('ed.menu.delTodo'));
+    del.onclick = delTodo;
+    a.appendChild(del);
   }
 
   function blockProps(p, b) {
@@ -892,9 +1077,6 @@
           sec.appendChild(el('div', 'ed-desc', t('ed.f.animSteps', { n, a: b.step || 0, b: (b.step || 0) + n })));
         }
       },
-      todo() {
-        field(sec, t('ed.f.todo'), textIn(b, 'text', { rows: 6, main: true, listRefresh: true, placeholder: t('ed.f.todoPh') }), t('ed.f.todoHint'));
-      },
       spacer() {
         field(sec, t('ed.f.height'), numIn(b, 'height', { range: true, min: 4, max: 200, def: 24, unit: 'px' }));
       },
@@ -966,10 +1148,11 @@
     if (typing(e)) return;
     if (mod && e.key.toLowerCase() === 'd' && block()) { e.preventDefault(); dupBlock(); return; }
     if (mod && e.key.toLowerCase() === 'c' && block() && !String(window.getSelection())) { E.clip = clone(block()); toast(t('ed.blockCopied', { id: E.clip.id })); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && todo()) { e.preventDefault(); delTodo(); return; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && block()) { e.preventDefault(); delBlock(); return; }
-    if (e.key === 'Escape') { selectBlock(null); return; }
+    if (e.key === 'Escape') { if (E.placing) setPlacing(false); else selectBlock(null); return; }
     if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && block()) { e.preventDefault(); moveBlock(e.key === 'ArrowUp' ? -1 : 1); return; }
-    if (!block() && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'PageUp' || e.key === 'PageDown')) {
+    if (!block() && !todo() && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'PageUp' || e.key === 'PageDown')) {
       e.preventDefault();
       selectSlide(E.slideIdx + (e.key === 'ArrowUp' || e.key === 'PageUp' ? -1 : 1));
     }
@@ -1088,7 +1271,7 @@
   /* ================= 导出 ================= */
   async function doExport() {
     await save();
-    const todos = E.deck.slides.reduce((a, s) => a + (s.blocks || []).filter((b) => b.type === 'todo').length, 0);
+    const todos = QS.todoCount(E.deck);
     const prog = el('div', 'ed-progress', t('ed.expPrepare'));
     const ov = el('div', 'ed-modal');
     const box = el('div', 'ed-modal-box');
@@ -1129,7 +1312,10 @@
       document.body.innerHTML = `<div class="ed-fatal"><h2>${t('ed.fatalTitle')}</h2><p>${t('ed.fatalBody')}</p><pre>${QS.esc(e.message)}</pre></div>`;
       return;
     }
+    const before = JSON.stringify(E.deck);
+    QS.migrate(E.deck);
     E.committed = JSON.stringify(E.deck);
+    if (E.committed !== before) { E.dirty = true; setTimeout(save, 500); } // 旧版 TODO 块已转换，写回文件
     if (document.fonts) await Promise.all([300, 400, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子'))).catch(() => {});
     renderAll();
     setInterval(poll, 1500);

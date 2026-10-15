@@ -25,9 +25,9 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 ## 修改 deck.json 的规则
 
 1. 不再做快照。如果 `slide/` 是 git 仓库，用户自己管理提交，Claude 不要替他提交。改动后告诉用户改了哪些块（ID），方便他用 ⌘Z 撤销或在 git 里查看。
-2. 用户引用的格式是 `[Slide 5 S-K3P | B-9XF Formula] "…"`（英文界面）或 `【第5页 S-K3P｜B-9XF 公式框】"…"`（中文界面）。按 ID 定位，不要按页码定位（页码会变，ID 不会）。
-3. 新建 ID：幻灯片 `S-XXX`，内容块 `B-XXX`。XXX 是 3 个字符，取自 `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`，全文唯一。不要修改已有 ID。
-4. "处理 TODO"：找出 `type: "todo"` 的块，按 `text` 的要求实现，再把 TODO 块替换成实际内容（替换时沿用它的位置、`step` 和 `col`）。
+2. 用户引用的格式是 `[Slide 5 S-K3P | B-9XF Formula] "…"`、`[Slide 5 S-K3P | TODO T-4KX at B-9XF Formula] "…"`（英文界面）或 `【第5页 S-K3P｜B-9XF 公式框】"…"`（中文界面）。按 ID 定位，不要按页码定位（页码会变，ID 不会）。
+3. 新建 ID：幻灯片 `S-XXX`，内容块 `B-XXX`，TODO 标注 `T-XXX`。XXX 是 3 个字符，取自 `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`，全文唯一。不要修改已有 ID。
+4. "处理 TODO"：TODO 不是内容块，而是每页 `todos` 数组里的标注，不占版面，只在编辑器显示。`{ id: "T-XXX", text, block, fx, fy, x, y }`：有 `block` 时钉在该块上（`fx`/`fy` 是块内的相对位置，0–1），否则 `x`/`y` 是 1280×720 画布坐标（钉在块上时 `x`/`y` 是块失效时的后备位置）。按 `text` 的要求、结合它所在的位置（钉在哪个块的哪个部位，或画布上哪个区域）实现内容，完成后删掉这条 todo；最后一条删掉时把 `todos` 字段一并删除。封面页和章节页也可以有 TODO。旧版的 `type: "todo"` 块会被 `QS.migrate` 自动转换。
 5. 写完后运行 `npm run check`（会检查 JSON 合法性、编号、KaTeX 能否解析、组件和图片是否存在）。
 
 ## 内容块字段
@@ -43,7 +43,6 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 | image | `src`（`assets/…`）, `width`（%）, `caption` |
 | circuit | `spec`（语法见 `engine/circuit.js` 文件头）, `stepwise`（none / gate / column）, `scale` |
 | anim | `component`, `params`, `height`（px） |
-| todo | `text`（只在编辑器显示） |
 | spacer | `height` |
 
 行内标记：`[[高亮]]`、`{{蓝字}}`、`**加粗**`、`$行内$`、`$$行间$$`、空行分段。

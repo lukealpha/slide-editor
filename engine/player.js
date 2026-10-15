@@ -294,6 +294,7 @@
       const res = await fetch('deck.json?t=' + Date.now(), { cache: 'no-store' });
       deck = await res.json();
     }
+    QS.migrate(deck);
     if (document.fonts && document.fonts.load) {
       await Promise.all([300, 400, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.ready])).catch(() => {});
     }

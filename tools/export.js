@@ -13,14 +13,14 @@ const { SLIDE, resolve, load, animationFiles, readDeck } = require('./engine');
     dataURL: async (data, mime) => `data:${mime};base64,${Buffer.from(data).toString('base64')}`,
     animationFiles,
   };
-  const deck = readDeck();
+  const deck = QS.migrate(readDeck());
   const { html, name } = await QS.exportDeck(deck, (msg) => console.log('  ' + msg), io);
   fs.mkdirSync(path.join(SLIDE, 'export'), { recursive: true });
   const dest = path.join(SLIDE, 'export', name);
   fs.writeFileSync(dest, html);
-  const todos = deck.slides.reduce((a, s) => a + (s.blocks || []).filter((b) => b.type === 'todo').length, 0);
+  const todos = QS.todoCount(deck);
   console.log(`\n  ✓ Exported: ${path.relative(process.cwd(), dest)} (${(fs.statSync(dest).size / 1048576).toFixed(2)} MB)`);
-  if (todos) console.log(`  ⚠ ${todos} TODO block(s) still unhandled (hidden when presenting)`);
+  if (todos) console.log(`  ⚠ ${todos} TODO note(s) still open (they never appear in the export)`);
 })().catch((e) => {
   console.error('\n  ✗ Export failed:', e.message);
   process.exit(1);

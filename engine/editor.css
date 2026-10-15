@@ -189,3 +189,25 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 .ed-ref.tag { background: #fff8e1; border-color: #f1c21b; }
 .ed-ref.remote { color: #6f6f6f; border-style: dashed; }
 .ed-git-detail { background: #f4f6fa; font-size: 12px; padding: 10px 12px; margin: 8px 0 0; max-height: 26vh; overflow: auto; white-space: pre-wrap; }
+
+/* TODO 标注（图钉）：浮在幻灯片上方的独立图层，不参与排版；尺寸为幻灯片坐标（随画布缩放） */
+.ed-add-todo { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ed-add-todo.on { background: var(--accent); color: #fff; }
+.ed-canvas.placing, .ed-canvas.placing * { cursor: crosshair !important; }
+.ed-pins { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
+.ed-pin { position: absolute; pointer-events: auto; cursor: grab; display: flex; align-items: center; transform: translate(-17px, -17px); }
+.ed-pin.dragging { pointer-events: none; cursor: grabbing; opacity: 0.85; }
+.ed-pin-dot {
+  flex: none; width: 34px; height: 34px; border-radius: 50% 50% 50% 4px; background: #ff832b; color: #fff;
+  font: 600 17px/34px 'Plex SC', sans-serif; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: 2px solid #fff;
+}
+.ed-pin-text {
+  margin-left: 8px; max-width: 340px; padding: 5px 12px; background: #fff7ef; border: 1.5px solid #ff832b; border-radius: 4px;
+  font: 17px/1.4 'Plex SC', sans-serif; color: #8a3800; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ed-pin.flip { flex-direction: row-reverse; transform: translate(calc(-100% + 17px), -17px); }
+.ed-pin.flip .ed-pin-text { margin: 0 8px 0 0; }
+.ed-pin.sel .ed-pin-dot { background: #ba4e00; outline: 3px solid rgba(255,131,43,0.35); }
+.ed-pin.sel .ed-pin-text { white-space: pre-wrap; max-height: 300px; overflow: auto; border-width: 2px; }
+.ed-pin:hover .ed-pin-text { white-space: pre-wrap; max-height: 300px; }
