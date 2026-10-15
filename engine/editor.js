@@ -17,6 +17,7 @@
     todoId: null, // 选中的 TODO 标注
     showTodos: true,
     placing: false, // 正在放置新的 TODO
+    todoList: false, // 右侧面板显示全部 TODO 列表
     previewStep: null, // null = 最终状态
     showIds: true,
     dirty: false,
@@ -265,7 +266,14 @@
     $('#ed-help').onclick = showHelp;
     $('#ed-git').onclick = () => QS.showGit();
     $('#ed-settings').onclick = showSettings;
-    $('#ed-todo').onclick = nextTodo;
+    $('#ed-todo').onclick = () => {
+      E.todoList = !E.todoList;
+      E.todoId = null;
+      E.blockId = null;
+      $$('.ed-stage .qs-block').forEach((n) => n.classList.remove('ed-selected'));
+      $$('.ed-stage .ed-pin').forEach((n) => n.classList.remove('sel'));
+      renderProps();
+    };
     $('#ed-copy-slide-ref').onclick = () => copyRef(null);
     $('#ed-show-ids').onchange = (e) => {
       E.showIds = e.target.checked;
@@ -338,6 +346,7 @@
         const act = e.target.dataset && e.target.dataset.act;
         if (act === 'dup') return dupSlide(i);
         if (act === 'del') return delSlide(i);
+        E.todoList = false;
         selectSlide(i);
       };
       item.addEventListener('dragstart', (e) => {
@@ -392,14 +401,6 @@
     b.textContent = 'TODO ' + n;
     b.style.display = n ? '' : 'none';
   }
-  function nextTodo() {
-    const all = [];
-    E.deck.slides.forEach((s, i) => (s.todos || []).forEach((x) => all.push([i, x.id])));
-    if (!all.length) return;
-    let k = all.findIndex(([i, id]) => i === E.slideIdx && id === E.todoId);
-    const [i, id] = all[(k + 1) % all.length];
-    selectSlide(i, null, id);
-  }
 
   function selectSlide(i, blockId, todoId) {
     E.slideIdx = Math.max(0, Math.min(E.deck.slides.length - 1, i));
@@ -415,6 +416,7 @@
   function selectBlock(id) {
     E.blockId = id;
     E.todoId = null;
+    E.todoList = false;
     $$('.ed-stage .qs-block').forEach((n) => n.classList.toggle('ed-selected', n.dataset.blockId === id));
     $$('.ed-stage .ed-pin').forEach((n) => n.classList.remove('sel'));
     renderProps();
@@ -773,10 +775,39 @@
     const p = $('.ed-props');
     p.innerHTML = '';
     const b = block(), td = todo();
-    if (td) todoProps(p, td);
+    $('#ed-todo').classList.toggle('on', E.todoList);
+    if (td) return todoProps(p, td);
+    else if (E.todoList) return todoListProps(p);
     else if (b) blockProps(p, b);
     else slideProps(p, slide());
     if (slide().type === 'content') palette(p);
+  }
+
+  /** 全部 TODO 列表（按页分组），点击一条跳到对应页面并打开详情 */
+  function todoListProps(p) {
+    const n = QS.todoCount(E.deck);
+    const sec = section(p, t('ed.todoList.title', { n }));
+    if (!n) {
+      sec.appendChild(el('div', 'ed-empty', QS.esc(t('ed.todoList.empty'))));
+      return;
+    }
+    sec.appendChild(el('p', 'ed-hint', QS.esc(t('ed.todoList.hint'))));
+    E.deck.slides.forEach((s, si) => {
+      if (!(s.todos || []).length) return;
+      const title = String(s.title || '').replace(/\s+/g, ' ').replace(/\$[^$]*\$/g, '…');
+      sec.appendChild(el('div', 'ed-tl-slide', `${QS.esc(t('ed.refSlide', { i: si + 1, id: s.id }))} <span>${QS.esc(title)}</span>`));
+      s.todos.forEach((td, ti) => {
+        const pb = td.block && (s.blocks || []).find((x) => x.id === td.block);
+        const where = pb ? t('ed.todo.on', { id: pb.id, type: typeName(pb) }) : t('ed.todo.at', { x: Math.round(td.x || 0), y: Math.round(td.y || 0) });
+        const nf = (td.files || []).length;
+        const row = el('div', 'ed-tl-item');
+        row.innerHTML = `<span class="ed-tl-dot">${ti + 1}</span><span class="ed-tl-body">
+          <span class="ed-tl-text">${QS.esc(String(td.text || '').trim() || t('ed.todo.empty'))}</span>
+          <span class="ed-tl-meta"><code>${td.id}</code> · ${QS.esc(where)}${nf ? ` · 📎${nf}` : ''}</span></span>`;
+        row.onclick = () => selectSlide(si, null, td.id);
+        sec.appendChild(row);
+      });
+    });
   }
 
   function section(p, title) {
@@ -968,8 +999,14 @@
   function todoProps(p, td) {
     const s = slide();
     const top = el('div', 'ed-back');
-    const back = el('button', 'small', t('ed.backToSlide'));
-    back.onclick = () => selectBlock(null);
+    // 从 TODO 列表进来的，返回列表；否则返回本页设置
+    const back = el('button', 'small', E.todoList ? t('ed.todo.backToList') : t('ed.backToSlide'));
+    back.onclick = () => {
+      if (!E.todoList) return selectBlock(null);
+      E.todoId = null;
+      $$('.ed-stage .ed-pin').forEach((n) => n.classList.remove('sel'));
+      renderProps();
+    };
     top.appendChild(back);
     p.appendChild(top);
     const sec = section(p, t('ed.todo.title'));
