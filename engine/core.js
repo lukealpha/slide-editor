@@ -38,6 +38,7 @@
     formula: { make: () => ({ latex: '\\hat{F}\\,|j\\rangle = \\frac{1}{\\sqrt{N}}\\sum_{k=0}^{N-1} e^{2\\pi i jk/N}|k\\rangle', boxed: true }) },
     box: { make: () => ({ label: T('default.box.label'), body: T('default.box.body'), variant: 'example' }) },
     image: { make: () => ({ src: '', width: 60, caption: '' }) },
+    table: { make: () => ({ rows: T('default.table'), header: true, headerCol: false, align: 'center' }) },
     circuit: { make: () => ({ spec: 'qubits 2\nH 0\nC0 X 1', stepwise: 'none', scale: 1 }) },
     anim: { make: () => ({ component: '', params: {}, height: 360 }) },
     spacer: { make: () => ({ height: 24 }) },
@@ -206,6 +207,205 @@
     for (let i = 0; i <= n; i++) frames.push(Object.assign({ offset: i / n }, map(samples[Math.round((i / n) * (samples.length - 1))], i / n)));
     return { frames, duration: ((samples.length - 1) / 240) * 1000 };
   }
+  /* ---------- 公式序列的变形：两个相邻公式里相同的字形从旧位置滑到新位置 ----------
+   * 只对设了 morph 的公式块、放映时向前一步（animate）时播放。做法：把旧公式的每个字形（KaTeX 的叶子元素、svg 定界符、分数线）
+   * 复制到一层浮层上，按出现顺序做最长公共子序列匹配；匹配上的从旧位置滑到新位置（并按尺寸缩放），
+   * 没匹配上的旧字形原地淡出，新公式里没匹配上的字形淡入。滑动期间新公式里对应的字形先隐藏，结束后换回真身。 */
+  function katexLeaves(item) {
+    const out = [];
+    const host = item.querySelector('.katex-html') || item;
+    (function walk(e) {
+      for (const c of e.children) {
+        const tag = c.tagName.toLowerCase();
+        if (tag === 'svg') { out.push({ el: c, tok: 'svg' }); continue; }
+        if (c.classList.contains('frac-line') || c.classList.contains('hline') || c.classList.contains('rule')) { out.push({ el: c, tok: 'rule' }); continue; }
+        if (!c.children.length) {
+          const t = c.textContent.replace(/\s+/g, '');
+          if (t) out.push({ el: c, tok: t });
+          continue;
+        }
+        walk(c);
+      }
+    })(host);
+    const range = document.createRange();
+    return out.filter((l) => {
+      // 文字取字形本身的范围：有的叶子带内边距（例如根号里的 2 左边留出了根号的位置）
+      if (l.tok === 'svg' || l.tok === 'rule') l.r = l.el.getBoundingClientRect();
+      else { range.selectNodeContents(l.el); l.r = range.getBoundingClientRect(); }
+      return l.r.width > 0.5 && l.r.height > 0.5;
+    });
+  }
+  function lcsPairs(a, b) {
+    const n = a.length, m = b.length;
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = a[i].tok === b[j].tok ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    const pairs = [];
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (a[i].tok === b[j].tok) { pairs.push([i, j]); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+      else j++;
+    }
+    return pairs;
+  }
+  function morphFormula(fEl, oldItem, newItem, oldLeaves) {
+    const base = fEl.getBoundingClientRect();
+    const k = base.width / (fEl.offsetWidth || base.width || 1) || 1; // 画布缩放
+    const newLeaves = katexLeaves(newItem);
+    // \mv{…} 标出的同一段内容在新公式里原样出现（例如一个相位挪到别的因子上）：整段先配对，沿弧线挪过去，不参与按顺序的匹配
+    const groups = (ls) => {
+      const m = new Map();
+      ls.forEach((l, i) => {
+        const g = l.el.closest('.qs-mv');
+        if (g) (m.get(g) || m.set(g, []).get(g)).push(i);
+      });
+      return [...m.values()];
+    };
+    const sig = (ls, g) => g.map((i) => ls[i].tok).join('\u0001');
+    const moved = new Set(), usedOld = new Set(), usedNew = new Set(), pairs = [];
+    const newGroups = groups(newLeaves);
+    for (const og of groups(oldLeaves)) {
+      const ng = newGroups.find((g) => !usedNew.has(g[0]) && sig(newLeaves, g) === sig(oldLeaves, og));
+      if (!ng) continue;
+      og.forEach((i, n) => { pairs.push([i, ng[n]]); moved.add(i); usedOld.add(i); usedNew.add(ng[n]); });
+    }
+    const restOld = oldLeaves.map((l, i) => i).filter((i) => !usedOld.has(i));
+    const restNew = newLeaves.map((l, j) => j).filter((j) => !usedNew.has(j));
+    for (const [a, b] of lcsPairs(restOld.map((i) => oldLeaves[i]), restNew.map((j) => newLeaves[j]))) pairs.push([restOld[a], restNew[b]]);
+    const DUR = 640, EASE = 'cubic-bezier(.65,0,.35,1)';
+    const layer = document.createElement('div');
+    layer.className = 'qs-morph';
+    fEl.appendChild(layer);
+    const anims = [];
+    const clone = (l) => {
+      const r = l.r, e = l.el, cs = getComputedStyle(e);
+      let c;
+      if (l.tok === 'svg') {
+        c = e.cloneNode(true);
+        c.setAttribute('width', r.width / k);
+        c.setAttribute('height', r.height / k);
+      } else {
+        c = document.createElement('div');
+        if (l.tok === 'rule') c.style.background = cs.borderBottomColor || cs.color;
+        else {
+          c.textContent = e.textContent;
+          c.style.fontFamily = cs.fontFamily;
+          c.style.fontSize = cs.fontSize;
+          c.style.fontStyle = cs.fontStyle;
+          c.style.fontWeight = cs.fontWeight;
+          c.style.lineHeight = r.height / k + 'px';
+          c.style.whiteSpace = 'pre';
+        }
+      }
+      c.style.position = 'absolute';
+      c.style.left = (r.left - base.left) / k + 'px';
+      c.style.top = (r.top - base.top) / k + 'px';
+      c.style.width = r.width / k + 'px';
+      c.style.height = r.height / k + 'px';
+      c.style.color = cs.color;
+      c.style.transformOrigin = '0 0';
+      layer.appendChild(c);
+      return c;
+    };
+    const matchedOld = new Set(pairs.map((p) => p[0])), matchedNew = new Set(pairs.map((p) => p[1]));
+    oldLeaves.forEach((l, i) => {
+      l.c = clone(l);
+      if (!matchedOld.has(i)) anims.push(l.c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', fill: 'forwards' }));
+    });
+    for (const [i, j] of pairs) {
+      const o = oldLeaves[i], w = newLeaves[j];
+      const dx = (w.r.left - o.r.left) / k, dy = (w.r.top - o.r.top) / k;
+      const sx = w.r.width / o.r.width, sy = w.r.height / o.r.height;
+      const end = `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+      let keys = [{ transform: 'none' }, { transform: end }];
+      if (moved.has(i)) {
+        // 挪动的那段从上方划一道弧，看得出是它自己在移动
+        const lift = Math.max(10, (o.r.height / k) * 0.9);
+        keys = [{ transform: 'none' }, { transform: `translate(${(dx / 2).toFixed(2)}px, ${(dy / 2 - lift).toFixed(2)}px) scale(${((1 + sx) / 2).toFixed(4)}, ${((1 + sy) / 2).toFixed(4)})` }, { transform: end }];
+      }
+      anims.push(o.c.animate(keys, { duration: DUR, easing: EASE, fill: 'forwards' }));
+      w.el.style.visibility = 'hidden';
+    }
+    newLeaves.forEach((l, j) => {
+      if (!matchedNew.has(j)) anims.push(l.el.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: DUR, easing: 'ease-out' }));
+    });
+    oldItem.style.visibility = 'hidden';
+    newItem.style.transition = 'none';
+    let over = false;
+    const done = () => {
+      if (over) return;
+      over = true;
+      layer.remove();
+      for (const [, j] of pairs) newLeaves[j].el.style.visibility = '';
+      oldItem.style.visibility = '';
+      newItem.style.transition = '';
+    };
+    const timer = setTimeout(done, DUR + 40);
+    return { finish() { clearTimeout(timer); anims.forEach((a) => a.cancel()); done(); } };
+  }
+
+  /* ---------- 块的收起 / 撑开 ----------
+   * 收起：先淡出（0.25 s），再把高度和下边距收到 0，下面的块随之平滑上移；撑开：同时（0.25 s 后）把高度撑开，再淡入。 */
+  const COLLAPSE_EASE = 'cubic-bezier(.65,0,.35,1)';
+  // 返回第二遍要做的事（读尺寸、改高度）；不用变时返回 null
+  function collapseBlock(w, collapsed, animate) {
+    if (w._collapsed === collapsed) return null;
+    // 第一次定状态（刚渲染、翻到本页）不做动画：块该显示就按普通的出现方式淡入，不走"撑开"
+    if (w._collapsed === undefined) animate = false;
+    w._collapsed = collapsed;
+    clearTimeout(w._collapseTimer);
+    // 收起的块是这一栏最后一块时，连上一个块的下边距也抵掉，不在底部留空隙；
+    // 后面还有块时不抵（否则后面的块会被多拉上去一个边距，接替出现的文字就不在原来的位置）
+    const prevMB = () => (w.previousElementSibling && !w.nextElementSibling ? '-' + getComputedStyle(w.previousElementSibling).marginBottom : '0px');
+    if (!animate || !w.isConnected) {
+      w.style.transition = 'none';
+      return () => {
+      if (!w._mb && !w.style.marginBottom) w._mb = getComputedStyle(w).marginBottom;
+      w.style.overflow = collapsed ? 'hidden' : '';
+      w.style.height = collapsed ? '0px' : '';
+      w.style.marginBottom = collapsed ? '0px' : '';
+      w.style.marginTop = collapsed ? prevMB() : '';
+      void w.offsetHeight;
+      w.style.transition = '';
+      };
+    }
+    // 先定好过渡，再读尺寸：读尺寸会立即结算样式，此前刚切换的 qs-on / qs-off 若没有这里的过渡就会瞬间跳变
+    if (collapsed) {
+      w.style.transition = `opacity 0.25s ease, visibility 0s 0.25s, transform 0.25s ease, height 0.6s ${COLLAPSE_EASE} 0.25s, margin 0.6s ${COLLAPSE_EASE} 0.25s`;
+      return () => {
+      const h = w.offsetHeight, mb = getComputedStyle(w).marginBottom, pmb = prevMB();
+      if (!w._mb) w._mb = mb;
+      w.style.overflow = 'hidden';
+      w.style.height = h + 'px';
+      w.style.marginBottom = mb;
+      w.style.marginTop = '0px';
+      void w.offsetHeight;
+      w.style.height = '0px';
+      w.style.marginBottom = '0px';
+      w.style.marginTop = pmb;
+      };
+    } else {
+      // 与同一步里收起的块同步（都在 0.25 s 后开始），总高度不变；高度撑开之后才淡入
+      w.style.transition = `height 0.6s ${COLLAPSE_EASE} 0.25s, margin 0.6s ${COLLAPSE_EASE} 0.25s, opacity 0.45s ease 0.85s, transform 0.45s ease 0.85s, visibility 0s 0s`;
+      return () => {
+      const target = w.scrollHeight;
+      w.style.height = target + 'px';
+      w.style.marginBottom = w._mb || '18px';
+      w.style.marginTop = '0px';
+      w._collapseTimer = setTimeout(() => {
+        if (w._collapsed) return;
+        w.style.transition = 'none';
+        w.style.height = '';
+        w.style.overflow = '';
+        w.style.marginBottom = '';
+        w.style.marginTop = '';
+        void w.offsetHeight;
+        w.style.transition = '';
+      }, 1400);
+      };
+    }
+  }
+
   function evolveSection(root) {
     const list = root.querySelector('.qs-rm');
     if (!list || !root.isConnected) return;
@@ -293,6 +493,10 @@
         return b.stepwise ? Math.max(0, splitLines(b.items).length - 1) : 0;
       case 'formula':
         return Math.max(0, splitSeq(b.latex).length - 1);
+      case 'box':
+        return Math.max(0, splitSeq(b.body).length - 1);
+      case 'table':
+        return b.stepwise ? Math.max(0, QS.tableRows(b.rows).length - (b.header === false ? 1 : 2)) : 0;
       case 'circuit':
         return b.stepwise && b.stepwise !== 'none' && QS.circuit ? Math.max(0, QS.circuit.stepCount(b.spec, b.stepwise) - 1) : 0;
       case 'anim': {
@@ -304,9 +508,32 @@
         return 0;
     }
   };
+  /** 动画组件各阶段（1…span）播放的步骤。默认紧跟块出现的步骤连续递增；
+   *  b.stageSteps 可逐个指定（中间允许空出几步给文字），按严格递增规整：缺省项 = 前一项 + 1 */
+  QS.stageSteps = function (b) {
+    const span = b.type === 'anim' ? QS.blockSpan(b) : 0;
+    const custom = Array.isArray(b.stageSteps) ? b.stageSteps : [];
+    const out = [];
+    let prev = b.step || 0;
+    for (let i = 0; i < span; i++) {
+      const v = custom[i];
+      prev = Math.max(prev + 1, Number.isInteger(v) ? v : prev + 1);
+      out.push(prev);
+    }
+    return out;
+  };
+  /** 块最后一个步骤（出现，或最后一个内部阶段） */
+  QS.blockLastStep = function (b) {
+    const ss = QS.stageSteps(b);
+    return ss.length ? ss[ss.length - 1] : (b.step || 0) + QS.blockSpan(b);
+  };
+  /** 块消失的步骤（b.until，须大于出现的步骤；否则不消失） */
+  QS.blockUntil = function (b) {
+    return Number.isInteger(b.until) && b.until > (b.step || 0) ? b.until : null;
+  };
   QS.maxStep = function (slide) {
     let m = 0;
-    for (const b of slide.blocks || []) m = Math.max(m, (b.step || 0) + QS.blockSpan(b));
+    for (const b of slide.blocks || []) m = Math.max(m, QS.blockLastStep(b), QS.blockUntil(b) || 0);
     return m;
   };
 
@@ -317,6 +544,22 @@
     return String(s || '').split(/\n\s*>>>\s*\n/).map((x) => x.trim()).filter((x) => x);
   }
   QS.splitSeq = splitSeq;
+  /** 表格：每行一行，单元格用 | 分隔（$…$ 里的 | 不算；\| 表示字面的 |） */
+  QS.tableRows = function (src) {
+    return splitLines(src).map((line) => {
+      const cells = [];
+      let cur = '', math = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '\\' && line[i + 1] === '|') { cur += '|'; i++; continue; }
+        if (ch === '$') math = !math;
+        if (ch === '|' && !math) { cells.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      cells.push(cur.trim());
+      return cells;
+    });
+  };
 
   /* ---------- 行内标记 ---------- */
   function esc(s) {
@@ -324,10 +567,19 @@
   }
   QS.esc = esc;
 
+  /** KaTeX 选项：唯一放开的是 \chg{…}（= \htmlClass{qs-chg}{…}），用来标出公式里"变了的部分"，
+   *  它出现的那一步弹跳一下并变成主题色，下一步再渐变回黑色 */
+  QS.katexOptions = function (display) {
+    return {
+      displayMode: !!display, throwOnError: true, strict: false,
+      trust: (ctx) => ctx.command === '\\htmlClass' && (ctx.class === 'qs-chg' || ctx.class === 'qs-mv'),
+      macros: { '\\chg': '\\htmlClass{qs-chg}{#1}', '\\mv': '\\htmlClass{qs-mv}{#1}' },
+    };
+  };
   QS.tex = function (latex, display) {
     if (!window.katex) return '<code>' + esc(latex) + '</code>';
     try {
-      return katex.renderToString(latex, { displayMode: !!display, throwOnError: true, strict: false, trust: false });
+      return katex.renderToString(latex, QS.katexOptions(display));
     } catch (e) {
       return '<span class="qs-tex-err" title="' + esc(e.message) + '">' + esc(latex) + '</span>';
     }
@@ -399,6 +651,7 @@
       } else {
         // 公式序列：同一位置依次变换
         e.classList.add('qs-seq');
+        if (b.morph) e.classList.add('qs-morphable'); // 相邻公式之间做字形变形（否则按原来的方式切换）
         seq.forEach((tex, i) => {
           const v = el('div', 'qs-seq-item', QS.tex(tex, true));
           v.dataset.step = (b.step || 0) + i;
@@ -409,10 +662,53 @@
       if (b.caption) e.appendChild(el('div', 'qs-formula-cap', QS.inline(b.caption)));
       return e;
     },
+    table(b) {
+      const rows = QS.tableRows(b.rows);
+      const ncol = Math.max(1, ...rows.map((r) => r.length));
+      const e = el('div', 'qs-table-wrap');
+      const tb = el('table', 'qs-table' + (b.full ? ' qs-table-full' : '') + (b.headerCol ? ' qs-table-hcol' : ''));
+      if (b.size) tb.style.fontSize = b.size + '%';
+      tb.style.setProperty('--qs-table-align', b.align === 'left' ? 'left' : 'center');
+      const head = b.header !== false && rows.length ? rows[0] : null;
+      if (head) {
+        const tr = el('tr');
+        for (let c = 0; c < ncol; c++) tr.appendChild(el('th', '', QS.inline(head[c] || '')));
+        tb.appendChild(el('thead')).appendChild(tr);
+      }
+      const body = tb.appendChild(el('tbody'));
+      rows.slice(head ? 1 : 0).forEach((r, i) => {
+        const tr = el('tr');
+        for (let c = 0; c < ncol; c++) {
+          const td = el(c === 0 && b.headerCol ? 'th' : 'td', '', QS.inline(r[c] || ''));
+          if (td.tagName === 'TH') td.scope = 'row';
+          tr.appendChild(td);
+        }
+        if (b.stepwise) {
+          tr.dataset.step = (b.step || 0) + i;
+          tr.classList.add('qs-sub');
+        }
+        body.appendChild(tr);
+      });
+      e.appendChild(tb);
+      if (b.caption) e.appendChild(el('div', 'qs-table-cap', QS.inline(b.caption)));
+      return e;
+    },
     box(b) {
       const e = el('div', 'qs-box qs-box-' + (b.variant || 'example'));
       if (b.label) e.appendChild(el('div', 'qs-box-label', QS.inline(b.label)));
-      e.appendChild(el('div', 'qs-box-body', QS.paragraphs(b.body)));
+      const seq = splitSeq(b.body);
+      if (seq.length <= 1) e.appendChild(el('div', 'qs-box-body', QS.paragraphs(b.body)));
+      else {
+        // 多段正文（用单独一行 >>> 隔开）：在同一个框里依次替换，每段占一步
+        const body = el('div', 'qs-box-body qs-box-seq');
+        seq.forEach((txt, i) => {
+          const v = el('div', 'qs-seq-item', QS.paragraphs(txt));
+          v.dataset.step = (b.step || 0) + i;
+          if (i < seq.length - 1) v.dataset.until = (b.step || 0) + i + 1;
+          body.appendChild(v);
+        });
+        e.appendChild(body);
+      }
       return e;
     },
     image(b) {
@@ -456,6 +752,13 @@
     wrap.dataset.blockId = b.id;
     wrap.dataset.step = b.step || 0;
     wrap.dataset.anim = b.anim || 'fade';
+    // until：这一步起淡出并收起占的高度（下面的内容随之上移）；reserve: false：出现之前不占位置
+    const until = QS.blockUntil(b);
+    if (until !== null) {
+      wrap.dataset.until = until;
+      wrap.classList.add('qs-until');
+    }
+    if (b.reserve === false) wrap.classList.add('qs-noreserve');
     wrap.appendChild(inner);
     return wrap;
   }
@@ -571,7 +874,7 @@
           emit: (state) => opts.onAnimState && opts.onAnimState(a.block.id, state),
         };
         const c = a.def.mount(a.el, params, api) || {};
-        controllers.push({ id: a.block.id, step: a.block.step || 0, span: QS.blockSpan(a.block), c });
+        controllers.push({ id: a.block.id, step: a.block.step || 0, stages: QS.stageSteps(a.block), c });
       } catch (e) {
         a.el.innerHTML = '<div class="qs-anim-missing">' + esc(QS.t('core.animError', { msg: e.message })) + '</div>';
         console.error(e);
@@ -595,6 +898,15 @@
       },
       setStep(step, animate) {
         current = step;
+        // 公式序列：先结束上一次还在进行的变形，再记下每个序列当前显示的公式和它的字形位置
+        (root._morphs || []).forEach((m) => m.finish());
+        root._morphs = [];
+        const seqBefore = animate
+          ? Array.from(root.querySelectorAll('.qs-formula.qs-seq.qs-morphable')).map((f) => {
+              const item = f.querySelector(':scope > .qs-seq-item.qs-on');
+              return { f, item, leaves: item ? katexLeaves(item) : null };
+            })
+          : [];
         root.classList.toggle('qs-noanim', !animate);
         if (slide.type === 'section') animate ? QS.playSectionIntro(root) : QS.finishSectionIntro(root);
         root.querySelectorAll('[data-step]').forEach((n) => {
@@ -604,8 +916,37 @@
           n.classList.toggle('qs-on', on);
           n.classList.toggle('qs-off', !on);
         });
+        // 消失 / 出现时收起或撑开块的高度（编辑器按预览的步骤同样收起，版面与放映一致）
+        // 两遍：先给所有要变的块定好过渡，再读尺寸、改高度（读尺寸会结算整页的样式）
+        {
+          const jobs = [];
+          root.querySelectorAll('.qs-block.qs-until, .qs-block.qs-noreserve').forEach((w) => {
+            const s = +w.dataset.step, u = w.dataset.until !== undefined ? +w.dataset.until : Infinity;
+            const job = collapseBlock(w, step >= u || (w.classList.contains('qs-noreserve') && step < s), animate);
+            if (job) jobs.push(job);
+          });
+          jobs.forEach((f) => f());
+        }
+        // 向前一步换到下一个公式时做变形
+        for (const sb of seqBefore) {
+          const now = sb.f.querySelector(':scope > .qs-seq-item.qs-on');
+          if (sb.item && now && now !== sb.item && now === sb.item.nextElementSibling) {
+            try { root._morphs.push(morphFormula(sb.f, sb.item, now, sb.leaves)); } catch (e) { console.error(e); }
+          }
+        }
+        // \chg{…} 标出的部分：所在内容出现的那一步是主题色（向前翻到这一步时先跳一下），之后渐变回黑色
+        root.querySelectorAll('.qs-chg').forEach((c) => {
+          const host = c.closest('[data-step]');
+          const fresh = !!host && +host.dataset.step === step;
+          const was = c.classList.contains('qs-chg-on');
+          c.classList.toggle('qs-chg-on', fresh);
+          if (fresh && !was && animate && c.animate) {
+            const f = springFrames(spring({ x0: 1, v0: 5, freq: 2.4, damping: 0.25, brake: 0.7, ringFreq: 2.2, ringDamping: 0.2 }), (p) => ({ transform: `scale(${p.x.toFixed(4)})` }));
+            c.animate(f.frames, { duration: f.duration, easing: 'linear' });
+          }
+        });
         for (const k of controllers) {
-          const stage = Math.max(0, Math.min(k.span, step - k.step));
+          const stage = k.stages.filter((s) => s <= step).length;
           if (k.c.update) k.c.update(stage, !!animate, step >= k.step);
         }
       },

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 超椭圆底 -->
+  <path d="M32 0C56 0 64 8 64 32S56 64 32 64 0 56 0 32 8 0 32 0Z" fill="#5588F6"/>
+  <!-- 两张卡片合起来的外框（x 10–54，y 15–49）居中，右上角离圆角留出距离 -->
+  <!-- 后面那张卡片：半透明白 -->
+  <rect x="18" y="15" width="36" height="24" rx="5" fill="#FFFFFF" fill-opacity="0.45"/>
+  <!-- 前面那张卡片 -->
+  <rect x="10" y="25" width="36" height="24" rx="5" fill="#FFFFFF"/>
+  <!-- 卡片上的标题条与一行正文 -->
+  <rect x="16" y="31.5" width="13" height="4" rx="2" fill="#5588F6"/>
+  <rect x="16" y="39" width="19" height="3" rx="1.5" fill="#C9D8FC"/>
+</svg>

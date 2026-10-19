@@ -47,6 +47,7 @@
     else if (b.type === 'list') s = b.items;
     else if (b.type === 'formula') s = b.latex;
     else if (b.type === 'box') s = (b.label || '') + ' ' + (b.body || '');
+    else if (b.type === 'table') s = b.rows;
     else if (b.type === 'image') s = b.src || t('core.noImage');
     else if (b.type === 'circuit') s = b.spec;
     else if (b.type === 'anim') s = QS.tl((QS.animations[b.component] || {}).name) || b.component || t('core.animNone');
@@ -329,8 +330,25 @@
   const accent = () => (E.deck.meta && E.deck.meta.accent) || DEFAULT_ACCENT;
 
   /* ================= 左侧：幻灯片列表 ================= */
+  // 列表的滚动位置：重绘列表时保持不变，并存进 localStorage，刷新页面后恢复
+  const LIST_SCROLL_KEY = 'qs-editor-list-scroll';
+  let listScrollBound = false;
+  function savedListScroll() {
+    try { return +localStorage.getItem(LIST_SCROLL_KEY) || 0; } catch (e) { return 0; }
+  }
+  function bindListScroll(list) {
+    if (listScrollBound) return;
+    listScrollBound = true;
+    let timer = null;
+    list.addEventListener('scroll', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { try { localStorage.setItem(LIST_SCROLL_KEY, String(Math.round(list.scrollTop))); } catch (e) {} }, 150);
+    });
+  }
   function renderSlideList() {
     const list = $('.ed-slide-list');
+    const first = !listScrollBound;
+    const keep = first ? savedListScroll() : list.scrollTop;
     for (const t of E.thumbs.values()) t.r && t.r.destroy();
     E.thumbs.clear();
     list.innerHTML = '';
@@ -381,6 +399,8 @@
       E.thumbs.set(i, { frame: $('.ed-thumb', item), r: null });
       drawThumb(i);
     });
+    list.scrollTop = keep;
+    bindListScroll(list);
     updateTodoBtn();
   }
   function drawThumb(i) {
@@ -461,6 +481,7 @@
     canvasTimer = setTimeout(renderCanvas, 60);
   }
   function renderCanvas() {
+    try { if (slide()) localStorage.setItem('qs-editor-slide', slide().id); } catch (e) {}
     clearTimeout(canvasTimer);
     const stage = $('.ed-stage');
     if (E.view) E.view.destroy();
@@ -474,8 +495,9 @@
     $$('.qs-block', root).forEach((w) => {
       const b = (s.blocks || []).find((x) => x.id === w.dataset.blockId);
       if (!b) return;
-      const span = QS.blockSpan(b);
-      const st = (b.step || 0) + (span ? '–' + ((b.step || 0) + span) : '');
+      const span = QS.blockSpan(b), ss = QS.stageSteps(b);
+      const gaps = ss.some((v, i) => v !== (b.step || 0) + i + 1);
+      const st = gaps ? [b.step || 0].concat(ss).join(',') : (b.step || 0) + (span ? '–' + QS.blockLastStep(b) : '');
       const badge = el('div', 'ed-badge', `${b.id}<i>${t('ed.badgeStep', { s: st })}</i>`);
       if (w.closest('.qs-col-right')) badge.classList.add('right');
       w.appendChild(badge);
@@ -774,6 +796,7 @@
   function renderProps() {
     const p = $('.ed-props');
     p.innerHTML = '';
+    E.stageSync = null;
     const b = block(), td = todo();
     $('#ed-todo').classList.toggle('on', E.todoList);
     if (td) return todoProps(p, td);
@@ -848,6 +871,48 @@
     const fitH = () => { ta.style.height = 'auto'; ta.style.height = Math.min(420, ta.scrollHeight + 2) + 'px'; };
     ta.addEventListener('input', fitH);
     setTimeout(fitH, 0);
+  }
+  /** 动画组件各阶段在第几步播放：每个阶段一个输入框；改动后严格递增规整，和默认的连续步骤相同时去掉 stageSteps */
+  function stageEditor(sec, b) {
+    const n = QS.blockSpan(b);
+    const desc = el('div', 'ed-desc');
+    sec.appendChild(desc);
+    const box = el('div', 'ed-stages');
+    sec.appendChild(box);
+    const inputs = [];
+    const isDefault = (ss) => ss.every((v, i) => v === (b.step || 0) + i + 1);
+    const sync = () => {
+      const ss = QS.stageSteps(b);
+      inputs.forEach((inp, i) => { if (document.activeElement !== inp) inp.value = ss[i]; inp.min = (i ? ss[i - 1] : b.step || 0) + 1; });
+      desc.textContent = t(isDefault(ss) ? 'ed.f.animSteps' : 'ed.f.animStepsCustom', { n, a: b.step || 0, b: ss[ss.length - 1] });
+      reset.disabled = isDefault(ss);
+    };
+    const commit = (i, v) => {
+      const ss = QS.stageSteps(b);
+      ss[i] = v;
+      for (let k = i + 1; k < n; k++) if (ss[k] <= ss[k - 1]) ss[k] = ss[k - 1] + 1; // 后面的阶段被推后，保持递增
+      b.stageSteps = ss;
+      if (isDefault(QS.stageSteps(b))) delete b.stageSteps;
+      changed();
+      sync();
+      renderStepbar(QS.maxStep(slide()));
+    };
+    for (let i = 0; i < n; i++) {
+      const row = el('label', 'ed-stage');
+      row.appendChild(el('span', '', t('ed.f.stageN', { i: i + 1 })));
+      const inp = el('input');
+      inp.type = 'number';
+      inp.max = 99;
+      inp.addEventListener('change', () => { if (inp.value !== '') commit(i, Math.max(+inp.min, Math.round(+inp.value))); sync(); });
+      row.appendChild(inp);
+      box.appendChild(row);
+      inputs.push(inp);
+    }
+    const reset = el('button', 'small', t('ed.f.stageReset'));
+    reset.onclick = (e) => { e.preventDefault(); delete b.stageSteps; changed(); sync(); renderStepbar(QS.maxStep(slide())); };
+    box.appendChild(reset);
+    E.stageSync = sync; // 块的出现步骤改变时刷新
+    sync();
   }
   function numIn(obj, key, o) {
     o = o || {};
@@ -1145,7 +1210,7 @@
         const check = (v) => {
           const msgs = [];
           for (const tex of QS.splitSeq(v)) {
-            try { katex.renderToString(tex, { displayMode: true, throwOnError: true, strict: false }); } catch (e) { msgs.push(e.message.replace(/^KaTeX parse error: /, '')); }
+            try { katex.renderToString(tex, QS.katexOptions(true)); } catch (e) { msgs.push(e.message.replace(/^KaTeX parse error: /, '')); }
           }
           err.textContent = msgs.length ? t('ed.f.texErr', { msg: msgs.join('; ') }) : '';
         };
@@ -1153,13 +1218,14 @@
         sec.appendChild(err);
         check(b.latex);
         checkIn(sec, b, 'boxed', t('ed.f.boxed'), { def: true });
+        checkIn(sec, b, 'morph', t('ed.f.morph'));
         field(sec, t('ed.f.sizePct'), numIn(b, 'size', { range: true, min: 60, max: 180, step: 5, def: 100, unit: '%' }));
         field(sec, t('ed.f.caption'), textIn(b, 'caption'));
       },
       box() {
         field(sec, t('ed.f.label'), textIn(b, 'label', { placeholder: t('ed.f.labelPh') }));
         field(sec, t('ed.f.variant'), seg(b, 'variant', [['example', t('ed.f.variant.example')], ['note', t('ed.f.variant.note')]]));
-        field(sec, t('ed.f.body'), textIn(b, 'body', { rows: 5, main: true, listRefresh: true }), t('ed.markupHint'));
+        field(sec, t('ed.f.body'), textIn(b, 'body', { rows: 5, main: true, listRefresh: true }), t('ed.markupHint') + ' ' + t('ed.f.boxSeqHint'));
       },
       image() {
         const pick = el('div', 'ed-row');
@@ -1192,6 +1258,16 @@
         field(sec, t('ed.f.width'), numIn(b, 'width', { range: true, min: 10, max: 100, def: 60, unit: '%' }));
         field(sec, t('ed.f.caption'), textIn(b, 'caption'));
       },
+      table() {
+        field(sec, t('ed.f.rows'), textIn(b, 'rows', { rows: 6, mono: true, main: true, listRefresh: true }), t('ed.f.rowsHint'));
+        checkIn(sec, b, 'header', t('ed.f.tHeader'), { def: true, structure: true });
+        checkIn(sec, b, 'headerCol', t('ed.f.tHeaderCol'));
+        checkIn(sec, b, 'full', t('ed.f.tFull'));
+        checkIn(sec, b, 'stepwise', t('ed.f.tStepwise'), { structure: true });
+        field(sec, t('ed.f.tAlign'), seg(b, 'align', [['center', t('ed.f.align.center')], ['left', t('ed.f.align.left')]]));
+        field(sec, t('ed.f.sizePct'), numIn(b, 'size', { range: true, min: 60, max: 150, step: 5, def: 100, unit: '%' }));
+        field(sec, t('ed.f.caption'), textIn(b, 'caption'));
+      },
       circuit() {
         field(sec, t('ed.f.spec'), textIn(b, 'spec', { rows: 8, mono: true, main: true, listRefresh: true }));
         const help = el('details', 'ed-details');
@@ -1220,10 +1296,7 @@
             field(ps, QS.tl(d.label) || d.key, input, QS.tl(d.hint));
           }
         }
-        if (def && def.steps) {
-          const n = QS.blockSpan(b);
-          sec.appendChild(el('div', 'ed-desc', t('ed.f.animSteps', { n, a: b.step || 0, b: (b.step || 0) + n })));
-        }
+        if (def && def.steps && QS.blockSpan(b)) stageEditor(sec, b);
       },
       spacer() {
         field(sec, t('ed.f.height'), numIn(b, 'height', { range: true, min: 4, max: 200, def: 24, unit: 'px' }));
@@ -1234,14 +1307,40 @@
     const c = section(p, t('ed.appear'));
     const stepRow = el('div', 'ed-row');
     const minus = el('button', 'small', '−'), plus = el('button', 'small', '+');
-    const stepIn = numIn(b, 'step', { min: 0, max: 99, def: 0, after: () => { refreshOutline(); } });
-    minus.onclick = (e) => { e.preventDefault(); b.step = Math.max(0, (b.step || 0) - 1); stepIn.value = b.step; changed(); refreshOutline(); };
-    plus.onclick = (e) => { e.preventDefault(); b.step = (b.step || 0) + 1; stepIn.value = b.step; changed(); refreshOutline(); };
+    const stepIn = numIn(b, 'step', { min: 0, max: 99, def: 0, after: () => { refreshOutline(); if (E.stageSync) E.stageSync(); } });
+    minus.onclick = (e) => { e.preventDefault(); b.step = Math.max(0, (b.step || 0) - 1); stepIn.value = b.step; changed(); refreshOutline(); if (E.stageSync) E.stageSync(); };
+    plus.onclick = (e) => { e.preventDefault(); b.step = (b.step || 0) + 1; stepIn.value = b.step; changed(); refreshOutline(); if (E.stageSync) E.stageSync(); };
     stepRow.appendChild(minus);
     stepRow.appendChild(stepIn);
     stepRow.appendChild(plus);
     field(c, t('ed.appearStep'), stepRow, t('ed.appearStepHint'));
     field(c, t('ed.effect'), selectIn(b, 'anim', Object.keys(QS.ANIMS).map((k) => [k, t('effect.' + k)])));
+    // 消失的步骤：空着 = 一直显示
+    const untilIn = el('input');
+    untilIn.type = 'number';
+    untilIn.min = 1;
+    untilIn.max = 99;
+    untilIn.value = b.until == null ? '' : b.until;
+    untilIn.addEventListener('input', () => {
+      if (untilIn.value === '') delete b.until;
+      else b.until = +untilIn.value;
+      changed();
+      refreshOutline();
+    });
+    field(c, t('ed.untilStep'), untilIn, t('ed.untilStepHint'));
+    // 出现之前是否占位置（默认占；关掉时块出现时才把下面的内容撑开）
+    const rsLab = el('label', 'ed-check');
+    const rsBox = el('input');
+    rsBox.type = 'checkbox';
+    rsBox.checked = b.reserve !== false;
+    rsBox.onchange = () => {
+      if (rsBox.checked) delete b.reserve;
+      else b.reserve = false;
+      changed();
+    };
+    rsLab.appendChild(rsBox);
+    rsLab.appendChild(document.createTextNode(' ' + t('ed.reserve')));
+    c.appendChild(rsLab);
     if (s.layout === 'split') field(c, t('ed.column'), seg(b, 'col', [['left', t('ed.column.left')], ['right', t('ed.column.right')]]));
 
     const a = section(p, '');
@@ -1471,6 +1570,11 @@
     QS.migrate(E.deck);
     E.committed = JSON.stringify(E.deck);
     if (E.committed !== before) { E.dirty = true; setTimeout(save, 500); } // 旧版 TODO 块已转换，写回文件
+    // 刷新后回到上次选中的幻灯片（按 ID）
+    try {
+      const si = E.deck.slides.findIndex((x) => x.id === localStorage.getItem('qs-editor-slide'));
+      if (si >= 0) E.slideIdx = si;
+    } catch (e) {}
     if (document.fonts) await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.load('500 24px "Futura ND Bundled"', 'PART 0123456789')])).catch(() => {});
     renderAll();
     setInterval(poll, 1500);

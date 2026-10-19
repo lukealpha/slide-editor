@@ -32,17 +32,18 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 
 ## 内容块字段
 
-通用字段：`id`, `type`, `step`（出现步骤，0 表示翻到本页即显示）, `anim`（`fade` | `rise` | `none`）, `col`（`left` | `right`，仅在幻灯片 `layout: "split"` 时生效）。
+通用字段：`id`, `type`, `step`（出现步骤，0 表示翻到本页即显示）, `until`（可选，大于 `step`：到这一步淡出并收起占的高度，下面的块随之平滑上移）, `reserve`（可选，`false` 时出现之前不占位置，出现时才把高度撑开）, `anim`（`fade` | `rise` | `none`）, `col`（`left` | `right`，仅在幻灯片 `layout: "split"` 时生效）。编辑器按预览的步骤同样收起；要编辑已消失的块，在步骤预览里切到它还在的那一步。
 
 | type | 字段 |
 |---|---|
 | text | `text`, `size`（normal / large / small）, `align` |
 | list | `items`（每行一条）, `ordered`, `stepwise`（逐条出现，每条占一步） |
-| formula | `latex`（多个公式用单独一行 `>>>` 分隔，依次在原位变换，每个占一步）, `boxed`, `size`（%）, `caption` |
-| box | `label`, `body`, `variant`（example / note） |
+| formula | `latex`（多个公式用单独一行 `>>>` 分隔，依次在原位变换，每个占一步）, `morph`（可选：放映时向前一步，两个公式里相同的字形按顺序匹配，从旧位置滑到新位置，其余的淡出 / 淡入（`core.js` 的 `morphFormula`）；不设时按原来的方式切换；`\mv{…}` 包住的一段如果在下一个公式里也用 `\mv{…}` 原样出现，就整段沿弧线挪过去）,（`latex` 里的 `\chg{…}` 标出变了的部分：它所在的公式出现的那一步弹一下并变成主题色，下一步渐变回黑色；对任何带 step 的内容里的公式都有效）, `boxed`, `size`（%）, `caption` |
+| box | `label`, `body`（可用单独一行 `>>>` 隔开多段：在同一个框里依次替换，每段占一步，旧的立即让位、新的淡入）, `variant`（example / note） |
 | image | `src`（`assets/…`）, `width`（%）, `caption` |
+| table | `rows`（每行一行，单元格用 `|` 分隔；`$…$` 里的 `|` 不算，`\|` 是字面的 `|`；单元格支持行内标记）, `header`（第一行是表头，默认 true）, `headerCol`（第一列是行标题）, `full`（占满整行宽度）, `align`（center / left）, `stepwise`（逐行出现）, `size`（%）, `caption` |
 | circuit | `spec`（语法见 `engine/circuit.js` 文件头）, `stepwise`（none / gate / column）, `scale` |
-| anim | `component`, `params`, `height`（px） |
+| anim | `component`, `params`, `height`（px）, `stageSteps`（可选：组件第 1、2…个内部阶段分别在第几步播放，严格递增，可以留出间隔给文字；不写则紧跟 `step` 连续播放） |
 | spacer | `height` |
 
 行内标记：`[[高亮]]`、`{{蓝字}}`、`**加粗**`、`$行内$`、`$$行间$$`、空行分段。
@@ -54,7 +55,7 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 
 `QS.registerAnimation({ id, name, description, params, steps, mount(el, params, api) })`
 - `params`：`[{ key, label, type: number|select|bool|text|color, min, max, step, default, options, hint }]`，编辑器会自动为它们生成控件。
-- `steps`：组件内部的阶段数（数字，或 `params => 数字`）。块占用步骤 `step … step+steps`。
+- `steps`：组件内部的阶段数（数字，或 `params => 数字`）。默认块占用步骤 `step … step+steps`；块上设置 `stageSteps` 时，各阶段改在指定的步骤播放（`QS.stageSteps(b)` 给出规整后的结果），中间的步骤 `update` 仍收到前一个阶段。
 - `mount` 返回 `{ update(stage, animate, visible), setState(state), destroy() }`；`api` 包含 `mode`（edit / present / thumb）、`accent`、`emit(state)`（交互状态会同步到演讲者/观众另一窗口）。
 - `animate=false` 时必须直接跳到该阶段的最终状态（编辑器预览、往回翻页时用到）。
 - 样式写在组件文件内自带的 `<style>` 里，类名加组件前缀。中文文字会被自动纳入导出字体子集。

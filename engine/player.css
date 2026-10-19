@@ -42,6 +42,7 @@ body { font-family: 'Plex SC', 'PingFang SC', sans-serif; }
 @media print {
   .qs-page-print { background: #fff; }
   .qs-print-bar { display: none; }
-  .qs-print-page { margin: 0; box-shadow: none; break-after: page; }
+  /* contain: strict：页里任何内容都不会把版面撑出纸张，否则 Chrome 会把整份文档等比缩小，每页底下留一条白边 */
+  .qs-print-page { margin: 0; box-shadow: none; break-after: page; position: relative; contain: strict; }
   .qs-slide { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

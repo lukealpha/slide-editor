@@ -33,7 +33,7 @@ function checkId(id, kind, where) {
 }
 function tex(src, display, where) {
   try {
-    katex.renderToString(src, { displayMode: display, throwOnError: true, strict: false });
+    katex.renderToString(src, QS.katexOptions ? QS.katexOptions(display) : { displayMode: display, throwOnError: true, strict: false });
   } catch (e) {
     errors.push(`${where}: formula error ${e.message.replace(/^KaTeX parse error: /, '')}\n      ${src}`);
   }
@@ -67,17 +67,39 @@ const usedTodoFiles = new Set();
     checkId(b.id, 'B', bw);
     if (!QS.BLOCK_TYPES[b.type]) return errors.push(`${bw}: unknown block type`);
     if (b.step !== undefined && !(Number.isInteger(b.step) && b.step >= 0)) errors.push(`${bw}: step must be a non-negative integer`);
+    if (b.until !== undefined && !(Number.isInteger(b.until) && b.until > (b.step || 0))) errors.push(`${bw}: until must be an integer greater than step (${b.step || 0})`);
+    if (b.reserve !== undefined && typeof b.reserve !== 'boolean') errors.push(`${bw}: reserve must be true or false`);
     if (b.col !== undefined && b.col !== 'left' && b.col !== 'right') errors.push(`${bw}: col must be left/right`);
     for (const k of ['text', 'items', 'body', 'label', 'caption']) inline(b[k], bw);
     if (b.type === 'formula') QS.splitSeq(b.latex).forEach((t) => tex(t, true, bw));
+    if (b.type === 'table') {
+      const rows = QS.tableRows(b.rows);
+      rows.forEach((r) => r.forEach((c) => inline(c, bw)));
+      const n = new Set(rows.map((r) => r.length));
+      if (n.size > 1) warns.push(`${bw}: rows have different numbers of cells (${[...n].join(', ')}); missing cells are left empty`);
+    }
     if (b.type === 'circuit') {
       const c = QS.circuit.parse(b.spec);
       Object.values(c.ins).concat(Object.values(c.outs)).forEach((t) => tex(t, false, bw + ' label'));
-      c.ops.forEach((op) => { if (op.gate && op.gate !== '*' && !(op.kind === 'ctrl' && op.gate === 'X')) tex(op.gate, false, bw + ' gate'); });
+      Object.values(c.cins || {}).forEach((t) => tex(t, false, bw + ' label'));
+      c.ops.forEach((op) => {
+        if (!op.gate || (op.kind === 'ctrl' && op.gate === 'X')) return;
+        if (op.gate[0] === '*') { if (op.gate.length > 1) tex(op.gate.slice(1), false, bw + ' angle'); }
+        else tex(op.gate, false, bw + ' gate');
+      });
+      // 拼错的关键字（如 Qubits）或比特编号超出范围的门会被静默丢掉：数一数
+      const lines = String(b.spec || '').split('\n').map((l) => l.replace(/#.*$/, '').trim()).filter(Boolean);
+      const gateLines = lines.filter((l) => !/^(qubits|cbits|in|out|cin)\s/.test(l));
+      if (c.ops.length < gateLines.length) warns.push(`${bw}: ${gateLines.length - c.ops.length} circuit line(s) dropped (misspelled keyword, or a qubit/cbit index out of range)`);
     }
     if (b.type === 'anim') {
       if (!b.component) warns.push(`${bw}: no animation component selected`);
       else if (!animIds.has(b.component)) errors.push(`${bw}: animation component not found: ${b.component}`);
+      if (b.stageSteps !== undefined) {
+        const ss = b.stageSteps;
+        if (!Array.isArray(ss) || !ss.every(Number.isInteger)) errors.push(`${bw}: stageSteps must be an array of integers`);
+        else if (ss.some((v, i) => v <= (i ? ss[i - 1] : b.step || 0))) warns.push(`${bw}: stageSteps ${JSON.stringify(ss)} should increase strictly after step ${b.step || 0}; out-of-order entries are pushed later when played`);
+      }
     }
     if (b.type === 'image') {
       if (!b.src) warns.push(`${bw}: no image selected`);

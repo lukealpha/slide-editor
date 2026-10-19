@@ -97,6 +97,14 @@
       }
     }
 
+    // 图标：编辑器目录下的 favicon.svg，以 data URL 嵌入（导出文件要能单独打开）
+    let icon = '';
+    try {
+      icon = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(await text('favicon.svg'))}">\n`;
+    } catch (e) {
+      console.warn('Favicon not embedded:', e.message);
+    }
+
     progress(QS.t('exp.html'));
     const title = (deck.meta && deck.meta.title) || QS.t('player.defaultTitle');
     const html = `<!doctype html>
@@ -105,7 +113,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${QS.esc(title)}</title>
-<!-- Exported by the slide editor on ${new Date().toISOString()}. Double-click to present; press P for presenter view. -->
+${icon}<!-- Exported by the slide editor on ${new Date().toISOString()}. Double-click to present; press P for presenter view. -->
 <style>
 ${faces}
 ${katexCss}
