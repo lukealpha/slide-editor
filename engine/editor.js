@@ -257,7 +257,9 @@
     $('#ed-play-start').onclick = () => play(0);
     $('#ed-presenter').onclick = async () => {
       await save();
-      window.open('present.html#presenter&s=' + (E.slideIdx + 1), 'qs-presenter');
+      const v = QS.visibleIndex(E.deck, E.slideIdx);
+      if (v < 0) return toast(t('ed.allHidden'), 'err');
+      window.open('present.html#presenter&s=' + (v + 1), 'qs-presenter');
     };
     $('#ed-print').onclick = async () => {
       await save();
@@ -353,11 +355,11 @@
     E.thumbs.clear();
     list.innerHTML = '';
     E.deck.slides.forEach((s, i) => {
-      const item = el('div', 'ed-slide-item' + (i === E.slideIdx ? ' active' : ''));
+      const item = el('div', 'ed-slide-item' + (i === E.slideIdx ? ' active' : '') + (s.hidden ? ' hidden-slide' : ''));
       item.draggable = true;
       item.dataset.idx = i;
       const hasTodo = (s.todos || []).length > 0;
-      item.innerHTML = `<div class="ed-slide-meta"><b>${i + 1}</b><span class="ed-sid">${s.id}</span>${hasTodo ? `<span class="ed-todo-dot" title="${t('ed.slideHasTodo')}">TODO</span>` : ''}
+      item.innerHTML = `<div class="ed-slide-meta"><b>${i + 1}</b><span class="ed-sid">${s.id}</span>${s.hidden ? `<span class="ed-hidden-dot" title="${t('ed.hiddenTip')}">${t('ed.hiddenBadge')}</span>` : ''}${hasTodo ? `<span class="ed-todo-dot" title="${t('ed.slideHasTodo')}">TODO</span>` : ''}
         <span class="ed-flex"></span><button class="tiny" data-act="dup" title="${t('ed.dupSlide')}">⧉</button><button class="tiny" data-act="del" title="${t('ed.delSlide')}">✕</button></div>
         <div class="ed-thumb"></div>`;
       item.onclick = (e) => {
@@ -487,7 +489,7 @@
     if (E.view) E.view.destroy();
     stage.innerHTML = '';
     const s = slide();
-    E.view = QS.renderSlide(E.deck, s, { mode: 'edit', pageNo: E.slideIdx + 1 });
+    E.view = QS.renderSlide(E.deck, s, { mode: 'edit', pageNo: QS.pageNo(E.deck, E.slideIdx) });
     const root = E.view.root;
     root.classList.add('qs-scaled');
     root.classList.toggle('ed-ids', E.showIds);
@@ -995,6 +997,19 @@
     cb.onclick = () => copyRef(null);
     ref.appendChild(cb);
     sec.appendChild(ref);
+    const hid = el('label', 'ed-check ed-hide-toggle');
+    const hc = el('input');
+    hc.type = 'checkbox';
+    hc.checked = !!s.hidden;
+    hc.onchange = () => {
+      if (hc.checked) s.hidden = true;
+      else delete s.hidden;
+      changed({ structure: true }); // 路线图和页码随之变化，缩略图全部重画
+    };
+    hid.appendChild(hc);
+    hid.appendChild(document.createTextNode(' ' + t('ed.hidden')));
+    sec.appendChild(hid);
+    sec.appendChild(el('div', 'ed-hint', t('ed.hiddenHint')));
     field(sec, s.type === 'content' ? t('ed.title') : t('ed.mainTitle'), textIn(s, 'title', { rows: s.type === 'cover' ? 2 : 0 }), s.type === 'cover' ? t('ed.titleBreakHint') : '');
     if (s.type === 'cover') {
       field(sec, t('ed.titleAlt'), textIn(s, 'titleAlt', { rows: 2 }), t('ed.titleAltHint'));
@@ -1355,22 +1370,25 @@
   /* ================= 放映 ================= */
   function play(idx) {
     if (E.playing) return;
+    const start = QS.visibleIndex(E.deck, idx);
+    if (start < 0) return toast(t('ed.allHidden'), 'err');
     E.playing = true;
     const ov = el('div', 'ed-play');
     document.body.appendChild(ov);
-    const player = new QS.Player(ov, clone(E.deck), {
-      start: idx,
+    const player = new QS.Player(ov, QS.visibleDeck(clone(E.deck)), {
+      start,
       onEscape: () => close(),
     });
     const close = () => {
       if (!E.playing) return;
       E.playing = false;
-      const i = player.idx;
+      const id = player.slide.id; // 放映里只有可见页，按 ID 找回编辑器里的位置
       player.destroy();
       ov.remove();
       document.removeEventListener('fullscreenchange', onFs);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-      selectSlide(i);
+      const i = E.deck.slides.findIndex((x) => x.id === id);
+      if (i >= 0) selectSlide(i);
     };
     const onFs = () => { if (!document.fullscreenElement) close(); };
     document.addEventListener('fullscreenchange', onFs);
@@ -1526,6 +1544,7 @@
   async function doExport() {
     await save();
     const todos = QS.todoCount(E.deck);
+    const hidden = E.deck.slides.length - QS.visibleSlides(E.deck).length;
     const prog = el('div', 'ed-progress', t('ed.expPrepare'));
     const ov = el('div', 'ed-modal');
     const box = el('div', 'ed-modal-box');
@@ -1541,7 +1560,7 @@
       ov.remove();
       if (!j.ok) throw new Error(j.error);
       const rel = 'export/' + name;
-      modal(t('ed.expDoneTitle'), t('ed.expDoneBody', { path: QS.esc(j.path), size: (j.size / 1048576).toFixed(2) }) + (todos ? t('ed.expTodos', { n: todos }) : ''),
+      modal(t('ed.expDoneTitle'), t('ed.expDoneBody', { path: QS.esc(j.path), size: (j.size / 1048576).toFixed(2) }) + (hidden ? t('ed.expHidden', { n: hidden }) : '') + (todos ? t('ed.expTodos', { n: todos }) : ''),
         [
           { label: t('ed.expReveal'), primary: true, run: () => fetch('api/reveal?path=' + encodeURIComponent(rel), { method: 'POST' }) },
           { label: t('ed.close') },

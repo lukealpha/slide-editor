@@ -81,6 +81,23 @@
     return deck.slides.reduce((a, s) => a + (s.todos || []).length, 0);
   };
 
+  /* 隐藏页（slide.hidden）：编辑器里照常显示和编辑，放映、打印和导出时整页去掉。
+   * 章节路线图和页码也按去掉隐藏页之后的顺序计算，编辑器预览与放映一致。 */
+  QS.visibleSlides = (deck) => deck.slides.filter((s) => !s.hidden);
+  QS.visibleDeck = (deck) => Object.assign({}, deck, { slides: QS.visibleSlides(deck) });
+  /** 编辑器里的第 idx 页在放映中的位置：本页隐藏时取它之后第一张可见页（没有就取最后一张）；没有可见页返回 -1 */
+  QS.visibleIndex = function (deck, idx) {
+    let n = -1;
+    for (let i = 0; i < deck.slides.length; i++) {
+      if (deck.slides[i].hidden) continue;
+      n++;
+      if (i >= idx) return n;
+    }
+    return n;
+  };
+  /** 页码：前面（含本页）可见页的数量 */
+  QS.pageNo = (deck, idx) => deck.slides.slice(0, idx + 1).filter((s) => !s.hidden).length;
+
   /** 旧版数据迁移：把 type: 'todo' 的内容块转成钉在前一个块下沿的 TODO 标注 */
   QS.migrate = function (deck) {
     for (const s of deck.slides || []) {
@@ -814,7 +831,7 @@
       // 路线图列出整份幻灯片的所有章节页，当前章节放大高亮；panel 样式在左侧加主题色面板和大号编号
       const style = QS.SECTION_STYLES.includes(deck.meta && deck.meta.sectionStyle) ? deck.meta.sectionStyle : QS.SECTION_STYLES[0];
       root.classList.add('qs-secstyle-' + style);
-      const secs = deck.slides.filter((s) => s.type === 'section');
+      const secs = deck.slides.filter((s) => s.type === 'section' && (!s.hidden || s.id === slide.id));
       const cur = secs.findIndex((s) => s.id === slide.id);
       const label = (s, i) => String(s.number || '').trim() || 'Part ' + (i + 1);
       if (style === 'panel') {

@@ -20,6 +20,8 @@ const { SLIDE, resolve, load, animationFiles, readDeck } = require('./engine');
   fs.writeFileSync(dest, html);
   const todos = QS.todoCount(deck);
   console.log(`\n  ✓ Exported: ${path.relative(process.cwd(), dest)} (${(fs.statSync(dest).size / 1048576).toFixed(2)} MB)`);
+  const hidden = deck.slides.length - QS.visibleSlides(deck).length;
+  if (hidden) console.log(`  · ${hidden} hidden slide(s) left out`);
   if (todos) console.log(`  ⚠ ${todos} TODO note(s) still open (they never appear in the export)`);
 })().catch((e) => {
   console.error('\n  ✗ Export failed:', e.message);

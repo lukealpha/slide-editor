@@ -39,6 +39,7 @@
 
     /* player / presenter / print */
     'player.hint': '→ / Space: next step   ←: back   F: fullscreen   B: blackout   P: presenter view   number + Enter: go to slide',
+    'player.allHidden': 'All slides are hidden. Turn off "Hide in presentation" on at least one slide in the editor.',
     'player.defaultTitle': 'Presentation',
     'pv.title': 'Presenter view · {title}',
     'pv.next': 'NEXT',
@@ -57,6 +58,7 @@
 
     /* export */
     'exp.readFail': 'Could not read: {f}',
+    'exp.allHidden': 'Nothing to export: every slide is hidden.',
     'exp.readEngine': 'Reading engine code…',
     'exp.mathFonts': 'Embedding math fonts…',
     'exp.chars': 'Collecting the characters in use…',
@@ -198,6 +200,11 @@
     'ed.layout.split': 'Two columns',
     'ed.leftWidth': 'Left column width',
     'ed.notes': 'Speaker notes (presenter view only)',
+    'ed.hidden': 'Hide in presentation',
+    'ed.hiddenHint': 'Skipped when presenting and printing, and left out of the exported file. Still editable here.',
+    'ed.hiddenBadge': 'Hidden',
+    'ed.hiddenTip': 'Hidden: not shown when presenting or in the export',
+    'ed.allHidden': 'Every slide is hidden — nothing to present.',
     'ed.notesPh': 'What to say on this slide…',
     'ed.blocksOnSlide': 'Blocks on this slide',
     'ed.noBlocks': 'No blocks yet — add one with the buttons below.',
@@ -345,6 +352,7 @@
     'ed.expDoneTitle': 'Export complete',
     'ed.expDoneBody': '<p>Single-file presentation created:<br><code>{path}</code><br>Size: {size} MB</p><p>Copy this file to any computer and double-click it to present in Chrome / Edge / Safari — no internet or installation needed. Press <b>P</b> after opening for presenter view.</p>',
     'ed.expTodos': '<p class="ed-warn">Note: {n} TODO note(s) are still open (they never appear in the export).</p>',
+    'ed.expHidden': '<p>{n} hidden slide(s) were left out.</p>',
     'ed.expReveal': 'Show in Finder',
     'ed.expFailTitle': 'Export failed',
     'ed.fatalTitle': 'Could not load deck.json',
@@ -383,6 +391,7 @@
     'core.animError': '动画出错：{msg}',
 
     'player.hint': '→ / 空格 下一步　← 上一步　F 全屏　B 黑屏　P 演讲者视图　数字+回车 跳页',
+    'player.allHidden': '所有页面都设为隐藏了。请在编辑器里至少给一页关掉“放映时隐藏”。',
     'player.defaultTitle': '演示',
     'pv.title': '演讲者视图 · {title}',
     'pv.next': '下一步',
@@ -400,6 +409,7 @@
     'print.hint': '在打印对话框中选择"存储为 PDF"，并把边距设为"无"。',
 
     'exp.readFail': '读取失败：{f}',
+    'exp.allHidden': '没有可导出的页面：所有页面都设为隐藏了。',
     'exp.readEngine': '读取引擎代码…',
     'exp.mathFonts': '内嵌公式字体…',
     'exp.chars': '统计用到的文字…',
@@ -535,6 +545,11 @@
     'ed.layout.split': '左右两栏',
     'ed.leftWidth': '左栏宽度',
     'ed.notes': '讲稿备注（只在演讲者视图显示）',
+    'ed.hidden': '放映时隐藏',
+    'ed.hiddenHint': '放映和打印时跳过这一页，导出文件里也不包含。编辑器里照常可以编辑。',
+    'ed.hiddenBadge': '隐藏',
+    'ed.hiddenTip': '已隐藏：放映和导出时都不显示',
+    'ed.allHidden': '所有页面都设为隐藏了，没有可放映的内容。',
     'ed.notesPh': '这一页要讲的话…',
     'ed.blocksOnSlide': '本页内容块',
     'ed.noBlocks': '还没有内容块，用下方按钮添加。',
@@ -680,6 +695,7 @@
     'ed.expDoneTitle': '导出完成',
     'ed.expDoneBody': '<p>已生成单文件演示：<br><code>{path}</code><br>大小：{size} MB</p><p>把这个文件拷到任何电脑上，用 Chrome / Edge / Safari 双击打开即可放映，不需要联网，也不需要安装任何东西。打开后按 <b>P</b> 可以进入演讲者视图。</p>',
     'ed.expTodos': '<p class="ed-warn">注意：还有 {n} 个 TODO 标注没处理（导出文件里不会出现）。</p>',
+    'ed.expHidden': '<p>已略去 {n} 张隐藏页。</p>',
     'ed.expReveal': '在访达中显示',
     'ed.expFailTitle': '导出失败',
     'ed.fatalTitle': '无法载入 deck.json',

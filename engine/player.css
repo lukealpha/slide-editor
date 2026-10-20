@@ -2,6 +2,9 @@
 html, body { margin: 0; height: 100%; }
 body { font-family: 'Plex SC', 'PingFang SC', sans-serif; }
 .qs-page-player { background: #000; overflow: hidden; }
+/* 鼠标静止一段时间后隐藏（同 PowerPoint 放映） */
+.qs-page-player.qs-cursor-idle, .qs-page-player.qs-cursor-idle * { cursor: none !important; }
+.qs-all-hidden { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 18px; }
 .qs-player { position: absolute; inset: 0; overflow: hidden; background: #000; }
 .qs-scaled { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .qs-blackout { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 5; }

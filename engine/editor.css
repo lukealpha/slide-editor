@@ -60,6 +60,9 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 .ed-slide-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
 .ed-slide-meta b { font-size: 13px; min-width: 16px; }
 .ed-sid { color: var(--ui-muted); font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+.ed-hidden-dot { font-size: 10px; background: #8d8d8d; color: #fff; padding: 0 5px; border-radius: 2px; font-weight: 600; }
+.ed-slide-item.hidden-slide .ed-thumb { opacity: 0.35; }
+.ed-hide-toggle { margin-top: 8px; }
 .ed-todo-dot { font-size: 10px; background: var(--accent); color: #fff; padding: 0 5px; border-radius: 2px; font-weight: 600; }
 .ed-thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; border: 1px solid var(--ui-line); pointer-events: none; }
 .ed-slide-add { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--ui-line); flex-wrap: wrap; }

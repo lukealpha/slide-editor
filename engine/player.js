@@ -16,7 +16,7 @@
     frame.innerHTML = '';
     const slide = deck.slides[idx];
     if (!slide) return null;
-    const r = QS.renderSlide(deck, slide, Object.assign({ mode: 'present', pageNo: idx + 1 }, opts));
+    const r = QS.renderSlide(deck, slide, Object.assign({ mode: 'present', pageNo: QS.pageNo(deck, idx) }, opts));
     r.root.classList.add('qs-scaled');
     frame.appendChild(r.root);
     r.mount();
@@ -178,7 +178,30 @@
     const hint = QS.el('div', 'qs-hint', QS.esc(QS.t('player.hint')));
     document.body.appendChild(hint);
     setTimeout(() => hint.classList.add('gone'), 3500);
+    hideIdleCursor(document.body);
     sync.send({ type: 'hello' });
+  }
+
+  // 放映时鼠标静止 2.5 秒后隐藏，移动或点击时重新出现；用键盘翻页时立即隐藏
+  function hideIdleCursor(body) {
+    const IDLE = 2500;
+    let timer = 0, lastX = -1, lastY = -1;
+    const hide = () => { clearTimeout(timer); body.classList.add('qs-cursor-idle'); };
+    const wake = () => {
+      body.classList.remove('qs-cursor-idle');
+      clearTimeout(timer);
+      timer = setTimeout(hide, IDLE);
+    };
+    window.addEventListener('mousemove', (e) => {
+      // 有的浏览器在页面重绘或切换全屏时会发出位置不变的 mousemove，不算移动
+      if (e.screenX === lastX && e.screenY === lastY) return;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      wake();
+    });
+    window.addEventListener('mousedown', wake);
+    window.addEventListener('keydown', (e) => { if (!e.metaKey && !e.ctrlKey && !e.altKey) hide(); });
+    timer = setTimeout(hide, IDLE);
   }
 
   /* ---------- 演讲者视图 ---------- */
@@ -295,6 +318,7 @@
       deck = await res.json();
     }
     QS.migrate(deck);
+    deck = QS.visibleDeck(deck); // 隐藏页不放映、不打印
     if (document.fonts && document.fonts.load) {
       await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.load('500 24px "Futura ND Bundled"', 'PART 0123456789'), document.fonts.ready])).catch(() => {});
     }
@@ -302,6 +326,11 @@
     document.documentElement.lang = QS.lang === 'zh' ? 'zh-CN' : 'en';
     const p = hashParams();
     window.addEventListener('hashchange', () => location.reload());
+    if (!deck.slides.length) {
+      document.body.className = 'qs-page-player';
+      document.body.appendChild(QS.el('div', 'qs-all-hidden', QS.esc(QS.t('player.allHidden'))));
+      return;
+    }
     if (p.presenter) startPresenter(deck, p);
     else if (p.print) startPrint(deck, p);
     else startAudience(deck, p);
