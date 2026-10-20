@@ -120,6 +120,24 @@
   const SEC = { H: 720, TOP: 72, BOTTOM: 72, NUM_BOTTOM: 337, NUM_HEIGHT: 180 };
   /** 挂载后计算：路线图竖直位置（当前章节尽量居中，与整体居中加权折中并限制在边距内）；
    *  大号编号：0–9 中最高的数字刚好 NUM_HEIGHT 高，底边落在 NUM_BOTTOM，左边与标签首字母按墨迹对齐 */
+  /** 只差几像素就能放进一行的标题，略收字距，免得因为浏览器差异换行。
+   *  Chrome 默认在行尾挤掉全角右括号"）"右半边的空白（text-spacing-trim），Safari 不挤，
+   *  所以"量子傅里叶变换算法（QFT）"这种刚好卡在栏宽上的标题在 Safari 里会把"（QFT）"挤到第二行。 */
+  function fitRoadmapTitles(list) {
+    for (const t of list.querySelectorAll('.t')) {
+      t.style.letterSpacing = '';
+      const lh = parseFloat(getComputedStyle(t).lineHeight) || 0;
+      if (!lh || t.offsetHeight < lh * 1.5) continue; // 已经是一行
+      const avail = t.clientWidth;
+      t.style.whiteSpace = 'nowrap';
+      const natural = t.scrollWidth;
+      t.style.whiteSpace = '';
+      const n = Array.from(t.textContent).length;
+      const over = natural - avail;
+      if (over <= 0 || over > avail * 0.04 || !n) continue; // 差得多就照常换行
+      t.style.letterSpacing = (-(over + 1) / n).toFixed(2) + 'px';
+    }
+  }
   QS.layoutSection = function (root) {
     const list = root.querySelector('.qs-rm');
     if (list && list.offsetHeight) {
@@ -127,6 +145,7 @@
       // 最终状态：当前章节高亮，位置在"当前章节居中"与"整体居中"之间加权折中
       root.classList.add('qs-sec-notrans');
       root.classList.remove('qs-sec-intro');
+      fitRoadmapTitles(list);
       const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
       const listH = list.offsetHeight;
       let top = (SEC.H - listH) / 2;
