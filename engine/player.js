@@ -47,6 +47,7 @@
         this.next();
       });
       this.numBuf = '';
+      this.stopIdleCursor = this.opts.hideCursor ? idleCursor(this.frame) : null;
       this.show(this.idx, this.opts.startStep || 0, true, true); // 初始显示不广播，由已打开的窗口回复当前位置
     }
     get slide() { return this.deck.slides[this.idx]; }
@@ -107,6 +108,7 @@
       if (idx === this.idx && this.cur) this.cur.setAnimState(id, st);
     }
     destroy() {
+      if (this.stopIdleCursor) this.stopIdleCursor();
       window.removeEventListener('keydown', this.onKey);
       window.removeEventListener('resize', this.onResize);
       if (this.cur) this.cur.destroy();
@@ -114,6 +116,40 @@
     }
   }
   QS.Player = Player;
+
+  // 放映一开始就隐藏鼠标，晃一下才出现；静止 2.5 秒后再隐藏，点击时出现，用键盘翻页时立即隐藏（同 PowerPoint 放映）。
+  // 类名加在放映画面自己的 frame 上，独立页面和编辑器里的全屏放映都适用；返回的函数移除监听（编辑器退出放映时调用）
+  function idleCursor(frame) {
+    const IDLE = 2500;
+    let timer = 0, lastX = null, lastY = null;
+    const hide = () => { clearTimeout(timer); frame.classList.add('qs-cursor-idle'); };
+    const wake = () => {
+      frame.classList.remove('qs-cursor-idle');
+      clearTimeout(timer);
+      timer = setTimeout(hide, IDLE);
+    };
+    const onMove = (e) => {
+      // 有的浏览器在页面重绘或切换全屏时会发出位置不变的 mousemove，不算移动；
+      // 开始放映后的第一个 mousemove 只记下位置（放映层出现、进入全屏时浏览器会补发一个），之后位置变了才算晃动
+      const first = lastX === null;
+      if (e.screenX === lastX && e.screenY === lastY) return;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      if (!first) wake();
+    };
+    const onKey = (e) => { if (!e.metaKey && !e.ctrlKey && !e.altKey) hide(); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousedown', wake);
+    window.addEventListener('keydown', onKey);
+    hide();
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mousedown', wake);
+      window.removeEventListener('keydown', onKey);
+      frame.classList.remove('qs-cursor-idle');
+    };
+  }
 
   QS.toggleFullscreen = function (elm) {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -174,34 +210,12 @@
       onChange: (idx, step) => { if (!applying) sync.send({ type: 'go', idx, step }); },
       onAnimState: (idx, id, state) => sync.send({ type: 'anim', idx, id, state }),
       onPresenter: () => sync.add(window.open(baseURL() + '#presenter', 'qs-presenter')),
+      hideCursor: true,
     });
     const hint = QS.el('div', 'qs-hint', QS.esc(QS.t('player.hint')));
     document.body.appendChild(hint);
     setTimeout(() => hint.classList.add('gone'), 3500);
-    hideIdleCursor(document.body);
     sync.send({ type: 'hello' });
-  }
-
-  // 放映时鼠标静止 2.5 秒后隐藏，移动或点击时重新出现；用键盘翻页时立即隐藏
-  function hideIdleCursor(body) {
-    const IDLE = 2500;
-    let timer = 0, lastX = -1, lastY = -1;
-    const hide = () => { clearTimeout(timer); body.classList.add('qs-cursor-idle'); };
-    const wake = () => {
-      body.classList.remove('qs-cursor-idle');
-      clearTimeout(timer);
-      timer = setTimeout(hide, IDLE);
-    };
-    window.addEventListener('mousemove', (e) => {
-      // 有的浏览器在页面重绘或切换全屏时会发出位置不变的 mousemove，不算移动
-      if (e.screenX === lastX && e.screenY === lastY) return;
-      lastX = e.screenX;
-      lastY = e.screenY;
-      wake();
-    });
-    window.addEventListener('mousedown', wake);
-    window.addEventListener('keydown', (e) => { if (!e.metaKey && !e.ctrlKey && !e.altKey) hide(); });
-    timer = setTimeout(hide, IDLE);
   }
 
   /* ---------- 演讲者视图 ---------- */

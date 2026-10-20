@@ -1378,6 +1378,7 @@
     const player = new QS.Player(ov, QS.visibleDeck(clone(E.deck)), {
       start,
       onEscape: () => close(),
+      hideCursor: true,
     });
     const close = () => {
       if (!E.playing) return;
