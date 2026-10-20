@@ -3,7 +3,7 @@
 @font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
 @font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
 /* 章节编号用 Futura：macOS 用系统自带的 Futura；其他电脑（Windows）用本机私有的 Futura ND Medium。
- * 该字体是商业授权字体，只放在 vendor/fonts/private/（已 git 忽略），不得提交或再分发；文件不存在时退回 sans-serif */
+ * 该字体是商业授权字体，只放在 vendor/fonts/private/，仅为自用备份提交在私有仓库里，不得再分发；文件不存在时退回 sans-serif */
 @font-face { font-family: 'Futura ND Bundled'; font-weight: 500; src: url(../vendor/fonts/private/FuturaND-Medium.ttf) format('truetype'); }
 @font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
 

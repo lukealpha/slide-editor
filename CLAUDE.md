@@ -47,7 +47,7 @@ IBM Quantum Learning 讲义风格的离线幻灯片编辑器、放映器和导�
 | spacer | `height` |
 
 行内标记：`[[高亮]]`、`{{蓝字}}`、`**加粗**`、`$行内$`、`$$行间$$`、空行分段。
-章节页样式由全局 `meta.sectionStyle` 决定（`panel` 色块分栏 + 路线图，默认；`roadmap` 仅路线图），路线图自动列出所有 section 页；编号用 Futura：Mac 用系统 Futura，其他电脑用本机私有的 `vendor/fonts/private/FuturaND-Medium.ttf`（Neufville Digital 商业字体，许可证禁止再分发——该目录已 git 忽略，绝不能提交；导出文件会内嵌其 ASCII 子集，导出文件也只能自用，不能分享）。
+章节页样式由全局 `meta.sectionStyle` 决定（`panel` 色块分栏 + 路线图，默认；`roadmap` 仅路线图），路线图自动列出所有 section 页；编号用 Futura：Mac 用系统 Futura，其他电脑用本机私有的 `vendor/fonts/private/FuturaND-Medium.ttf`（Neufville Digital 商业字体，许可证禁止再分发——应用户要求作为自用备份提交在私有远端仓库里，所以这个仓库**必须保持私有**：公开之前先把它从历史里彻底清掉；导出文件会内嵌其 ASCII 子集，导出文件也只能自用，不能分享）。
 幻灯片类型：`cover`（title / titleAlt（主标题下方的灰色第二标题）/ author / subtitle（与 author 组成下部一组）/ footer / coverLayout（可选的布局参数，只存改动过的项，键与默认值见 `QS.COVER_LAYOUT`：left、titleTop、titleSize、altSize、textWidth、metaBottom、metaGap、showArt、artSize、artTop、artRight、footerBottom，单位 px））、`section`（number（如 Part 2，数字成为大号编号；留空自动编号）/ title / subtitle）、`content`（title / layout / split / blocks）。每页都有 `notes` 字段，存讲稿备注；可选 `hidden: true` 表示放映时隐藏（编辑器照常显示，放映、打印、导出时整页去掉，章节路线图和页码也不计入；不隐藏时删掉该字段）。
 画布逻辑尺寸 1280×720。正文区从 top 150 到 bottom 48，左右各留 96px，可用高度约 520px。加内容前先估算高度，不要溢出。
 
