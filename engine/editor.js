@@ -7,7 +7,6 @@
   const el = (tag, cls, html) => QS.el(tag, cls, html);
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const t = (k, v) => QS.t(k, v);
-  const DEFAULT_ACCENT = '#5588F6';
 
   const E = {
     deck: null,
@@ -183,6 +182,7 @@
   async function reloadFromDisk(msg) {
     const res = await fetch('deck.json?t=' + Date.now(), { cache: 'no-store' });
     const deck = QS.migrate(await res.json());
+    if (QS.themeId(deck) !== QS.theme.id) return location.reload(); // 主题被手动改了：整页重新载入，换上新主题
     const v = (await (await fetch('api/version', { cache: 'no-store' })).json()).version;
     const keepSlide = slide() && slide().id, keepBlock = E.blockId;
     if (E.groupTimer) closeGroup();
@@ -230,11 +230,7 @@
     </header>
     <aside class="ed-slides">
       <div class="ed-slide-list"></div>
-      <div class="ed-slide-add">
-        <button data-add="content">${t('ed.addContent')}</button>
-        <button data-add="section">${t('ed.addSection')}</button>
-        <button data-add="cover">${t('ed.addCover')}</button>
-      </div>
+      <div class="ed-slide-add"></div>
     </aside>
     <main class="ed-main">
       <div class="ed-canvas-head">
@@ -287,7 +283,6 @@
       renderCanvas();
     };
     $('#ed-add-todo').onclick = () => setPlacing(!E.placing);
-    $$('.ed-slide-add button').forEach((b) => (b.onclick = () => addSlide(b.dataset.add)));
 
     const canvas = $('.ed-canvas');
     new ResizeObserver(() => E.view && QS.fit(canvas, E.view.root)).observe(canvas);
@@ -329,7 +324,17 @@
     renderProps();
     setStatus();
   }
-  const accent = () => (E.deck.meta && E.deck.meta.accent) || DEFAULT_ACCENT;
+  const accent = () => (E.deck.meta && E.deck.meta.accent) || QS.theme.accent;
+  /** 左栏底部的"添加页面"按钮：主题有哪些页面类型就列哪些 */
+  function renderAddButtons() {
+    const box = $('.ed-slide-add');
+    box.innerHTML = '';
+    for (const [type, def] of Object.entries(QS.theme.slideTypes)) {
+      const b = el('button', '', t(def.add || 'ed.addContent'));
+      b.onclick = () => addSlide(type);
+      box.appendChild(b);
+    }
+  }
 
   /* ================= 左侧：幻灯片列表 ================= */
   // 列表的滚动位置：重绘列表时保持不变，并存进 localStorage，刷新页面后恢复
@@ -874,8 +879,9 @@
     ta.addEventListener('input', fitH);
     setTimeout(fitH, 0);
   }
-  /** 动画组件各阶段在第几步播放：每个阶段一个输入框；改动后严格递增规整，和默认的连续步骤相同时去掉 stageSteps */
+  /** 动画组件各阶段（或逐行表格第 2 行起各行）在第几步出现：每项一个输入框；改动后严格递增规整，和默认的连续步骤相同时去掉 stageSteps */
   function stageEditor(sec, b) {
+    const rows = b.type === 'table';
     const n = QS.blockSpan(b);
     const desc = el('div', 'ed-desc');
     sec.appendChild(desc);
@@ -886,7 +892,7 @@
     const sync = () => {
       const ss = QS.stageSteps(b);
       inputs.forEach((inp, i) => { if (document.activeElement !== inp) inp.value = ss[i]; inp.min = (i ? ss[i - 1] : b.step || 0) + 1; });
-      desc.textContent = t(isDefault(ss) ? 'ed.f.animSteps' : 'ed.f.animStepsCustom', { n, a: b.step || 0, b: ss[ss.length - 1] });
+      desc.textContent = t(rows ? 'ed.f.rowSteps' : isDefault(ss) ? 'ed.f.animSteps' : 'ed.f.animStepsCustom', { n, a: b.step || 0, b: ss[ss.length - 1] });
       reset.disabled = isDefault(ss);
     };
     const commit = (i, v) => {
@@ -901,7 +907,7 @@
     };
     for (let i = 0; i < n; i++) {
       const row = el('label', 'ed-stage');
-      row.appendChild(el('span', '', t('ed.f.stageN', { i: i + 1 })));
+      row.appendChild(el('span', '', t(rows ? 'ed.f.rowN' : 'ed.f.stageN', { i: rows ? i + 2 : i + 1 })));
       const inp = el('input');
       inp.type = 'number';
       inp.max = 99;
@@ -990,6 +996,19 @@
     return w;
   }
 
+  /** 主题的编辑器扩展（slideTypes.*.fields / panels、settings）用到的控件 */
+  const ui = {
+    t, el,
+    section: (p, title) => section(p, title),
+    field: (sec, label, input, hint) => field(sec, label, input, hint),
+    textIn: (obj, key, o) => textIn(obj, key, o),
+    numIn: (obj, key, o) => numIn(obj, key, o),
+    selectIn: (obj, key, options, o) => selectIn(obj, key, options, o),
+    checkIn: (sec, obj, key, label, o) => checkIn(sec, obj, key, label, o),
+    seg: (obj, key, options, o) => seg(obj, key, options, o),
+    changed: (o) => changed(o),
+  };
+
   function slideProps(p, s) {
     const sec = section(p, t('ed.settingsFor', { type: slideTypeName(s.type) }));
     const ref = el('div', 'ed-idrow', `<code>${s.id}</code><span class="ed-flex"></span>`);
@@ -1010,23 +1029,15 @@
     hid.appendChild(document.createTextNode(' ' + t('ed.hidden')));
     sec.appendChild(hid);
     sec.appendChild(el('div', 'ed-hint', t('ed.hiddenHint')));
-    field(sec, s.type === 'content' ? t('ed.title') : t('ed.mainTitle'), textIn(s, 'title', { rows: s.type === 'cover' ? 2 : 0 }), s.type === 'cover' ? t('ed.titleBreakHint') : '');
-    if (s.type === 'cover') {
-      field(sec, t('ed.titleAlt'), textIn(s, 'titleAlt', { rows: 2 }), t('ed.titleAltHint'));
-      field(sec, t('ed.coverSub'), textIn(s, 'subtitle', { rows: 2 }));
-      field(sec, t('ed.author'), textIn(s, 'author'));
-      field(sec, t('ed.footer'), textIn(s, 'footer'));
-    }
-    if (s.type === 'section') {
-      field(sec, t('ed.sectionNum'), textIn(s, 'number'), t('ed.sectionNumHint'));
-      field(sec, t('ed.subtitle'), textIn(s, 'subtitle', { rows: 2 }));
-    }
+    const kind = QS.theme.slideTypes[s.type] || {};
     if (s.type === 'content') {
+      field(sec, t('ed.title'), textIn(s, 'title'));
       field(sec, t('ed.layout'), seg(s, 'layout', [['single', t('ed.layout.single')], ['split', t('ed.layout.split')]], { structure: true }));
       if (s.layout === 'split') field(sec, t('ed.leftWidth'), numIn(s, 'split', { range: true, min: 25, max: 75, def: 55, unit: '%' }));
-    }
+    } else if (!kind.fields) field(sec, t('ed.mainTitle'), textIn(s, 'title'));
+    if (kind.fields) kind.fields(ui, sec, s);
     field(sec, t('ed.notes'), textIn(s, 'notes', { rows: 4, placeholder: t('ed.notesPh') }));
-    if (s.type === 'cover') coverLayoutProps(p, s);
+    if (kind.panels) kind.panels(ui, p, s);
 
     if (s.type === 'content') {
       const o = section(p, t('ed.blocksOnSlide'));
@@ -1034,47 +1045,6 @@
       refreshOutline();
       if (!(s.blocks || []).length) o.appendChild(el('div', 'ed-empty', t('ed.noBlocks')));
     }
-  }
-
-  /** 封面布局：按模块分组的滑块，拖动时画布实时更新；只把改动过的项写进 coverLayout */
-  function coverLayoutProps(p, s) {
-    const D = QS.COVER_LAYOUT;
-    const lay = new Proxy({}, {
-      get: (_, k) => (s.coverLayout || {})[k],
-      set: (_, k, v) => { (s.coverLayout = s.coverLayout || {})[k] = v; return true; },
-    });
-    const sec = section(p, t('ed.cl.title'));
-    const slider = (key, min, max, step) => numIn(lay, key, { range: true, min, max, step: step || 1, def: D[key], unit: 'px' });
-    const group = (label) => sec.appendChild(el('div', 'ed-subhead', QS.esc(label)));
-
-    group(t('ed.cl.text'));
-    field(sec, t('ed.cl.left'), slider('left', 0, 300));
-    field(sec, t('ed.cl.titleTop'), slider('titleTop', 0, 400));
-    field(sec, t('ed.cl.titleSize'), slider('titleSize', 28, 110));
-    field(sec, t('ed.cl.altSize'), slider('altSize', 14, 56));
-    field(sec, t('ed.cl.textWidth'), slider('textWidth', 240, 1200, 10));
-
-    group(t('ed.cl.meta'));
-    field(sec, t('ed.cl.metaBottom'), slider('metaBottom', 0, 600));
-    field(sec, t('ed.cl.metaGap'), slider('metaGap', 0, 240));
-
-    group(t('ed.cl.art'));
-    checkIn(sec, lay, 'showArt', t('ed.cl.showArt'), { def: D.showArt, structure: true });
-    if (lay.showArt !== false) {
-      field(sec, t('ed.cl.artSize'), slider('artSize', 120, 720, 2));
-      field(sec, t('ed.cl.artTop'), slider('artTop', 0, 400));
-      field(sec, t('ed.cl.artRight'), slider('artRight', 0, 700));
-    }
-
-    group(t('ed.cl.footer'));
-    field(sec, t('ed.cl.footerBottom'), slider('footerBottom', 0, 200));
-
-    const reset = el('button', 'small', t('ed.cl.reset'));
-    reset.onclick = () => {
-      delete s.coverLayout;
-      changed({ structure: true });
-    };
-    sec.appendChild(reset);
   }
 
   function refreshOutline() {
@@ -1086,7 +1056,7 @@
       const r = el('div', 'ed-ol-item' + (b.id === E.blockId ? ' on' : ''));
       r.draggable = true;
       r.innerHTML = `<span class="ed-ol-grip">⋮⋮</span><code>${b.id}</code><span class="ed-ol-type">${typeName(b)}</span>
-        <span class="ed-ol-snip">${QS.esc(snippet(b))}</span><span class="ed-ol-step">${s.layout === 'split' ? (b.col === 'right' ? t('ed.colR') : t('ed.colL')) : ''}${t('ed.stepShort', { s: b.step || 0 })}</span>`;
+        <span class="ed-ol-snip">${QS.esc(snippet(b))}</span><span class="ed-ol-step">${s.layout === 'split' ? (b.col === 'right' ? t('ed.colR') : b.col === 'full' ? t('ed.colF') : t('ed.colL')) : ''}${t('ed.stepShort', { s: b.step || 0 })}</span>`;
       r.onclick = () => selectBlock(b.id);
       r.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/qs-block', String(i)));
       r.addEventListener('dragover', (e) => {
@@ -1112,7 +1082,7 @@
   function palette(p) {
     const sec = section(p, block() ? t('ed.addAfter') : t('ed.addBlock'));
     sec.classList.add('ed-palette');
-    for (const type of Object.keys(QS.BLOCK_TYPES)) {
+    for (const type of Object.keys(QS.BLOCK_TYPES).filter((k) => QS.theme.blocks.includes(k))) {
       const b = el('button', 'small', t('type.' + type));
       b.onclick = () => insertBlock(type);
       sec.appendChild(b);
@@ -1212,13 +1182,14 @@
     const T = {
       text() {
         field(sec, t('ed.f.text'), textIn(b, 'text', { rows: 5, main: true, listRefresh: true }), t('ed.markupHint'));
-        field(sec, t('ed.f.size'), seg(b, 'size', [['normal', t('ed.f.size.normal')], ['large', t('ed.f.size.large')], ['small', t('ed.f.size.small')]]));
+        field(sec, t('ed.f.size'), seg(b, 'size', (QS.theme.textSizes || ['normal']).map((k) => [k, t('ed.f.size.' + k)])));
         field(sec, t('ed.f.align'), seg(b, 'align', [['', t('ed.f.align.left')], ['center', t('ed.f.align.center')]]));
       },
       list() {
         field(sec, t('ed.f.items'), textIn(b, 'items', { rows: 5, main: true, listRefresh: true }), t('ed.markupHint'));
         checkIn(sec, b, 'ordered', t('ed.f.ordered'));
         checkIn(sec, b, 'stepwise', t('ed.f.stepwise'), { structure: true });
+        field(sec, t('ed.f.sizePct'), numIn(b, 'size', { range: true, min: 60, max: 150, step: 1, def: 100, unit: '%' }));
       },
       formula() {
         const err = el('div', 'ed-tex-err');
@@ -1278,7 +1249,9 @@
         checkIn(sec, b, 'header', t('ed.f.tHeader'), { def: true, structure: true });
         checkIn(sec, b, 'headerCol', t('ed.f.tHeaderCol'));
         checkIn(sec, b, 'full', t('ed.f.tFull'));
+        field(sec, t('ed.f.tWidths'), textIn(b, 'widths', { mono: true, placeholder: '12, 43, 35' }), t('ed.f.tWidthsHint'));
         checkIn(sec, b, 'stepwise', t('ed.f.tStepwise'), { structure: true });
+        if (b.stepwise && QS.blockSpan(b)) stageEditor(sec, b);
         field(sec, t('ed.f.tAlign'), seg(b, 'align', [['center', t('ed.f.align.center')], ['left', t('ed.f.align.left')]]));
         field(sec, t('ed.f.sizePct'), numIn(b, 'size', { range: true, min: 60, max: 150, step: 5, def: 100, unit: '%' }));
         field(sec, t('ed.f.caption'), textIn(b, 'caption'));
@@ -1314,7 +1287,8 @@
         if (def && def.steps && QS.blockSpan(b)) stageEditor(sec, b);
       },
       spacer() {
-        field(sec, t('ed.f.height'), numIn(b, 'height', { range: true, min: 4, max: 200, def: 24, unit: 'px' }));
+        field(sec, t('ed.f.height'), numIn(b, 'height', { range: true, min: 0, max: 200, def: 24, unit: 'px' }));
+        checkIn(sec, b, 'fill', t('ed.f.fill'));
       },
     };
     (T[b.type] || (() => {}))();
@@ -1343,6 +1317,7 @@
       refreshOutline();
     });
     field(c, t('ed.untilStep'), untilIn, t('ed.untilStepHint'));
+    field(c, t('ed.delay'), numIn(b, 'delay', { min: 0, max: 5000, step: 50, def: 0, after: () => { if (!b.delay) delete b.delay; } }), t('ed.delayHint'));
     // 出现之前是否占位置（默认占；关掉时块出现时才把下面的内容撑开）
     const rsLab = el('label', 'ed-check');
     const rsBox = el('input');
@@ -1356,7 +1331,7 @@
     rsLab.appendChild(rsBox);
     rsLab.appendChild(document.createTextNode(' ' + t('ed.reserve')));
     c.appendChild(rsLab);
-    if (s.layout === 'split') field(c, t('ed.column'), seg(b, 'col', [['left', t('ed.column.left')], ['right', t('ed.column.right')]]));
+    if (s.layout === 'split') field(c, t('ed.column'), seg(b, 'col', [['left', t('ed.column.left')], ['right', t('ed.column.right')], ['full', t('ed.column.full')]], { structure: true }), t('ed.columnHint'));
 
     const a = section(p, '');
     a.classList.add('ed-actions');
@@ -1509,6 +1484,9 @@
     const m = (E.deck.meta = E.deck.meta || {});
     const box = el('div');
     const sec = section(box, '');
+    // 主题只读：新建幻灯片时定好，要换只能手动改 deck.json
+    const th = el('div', 'ed-theme-ro', `<b>${QS.esc(QS.tl(QS.theme.name) || QS.theme.id)}</b> <code>${QS.esc(QS.theme.id)}</code>`);
+    field(sec, t('ed.setTheme'), th, t('ed.setThemeHint'));
     field(sec, t('ed.setDeckTitle'), textIn(m, 'title', { after: () => ($('#ed-title').textContent = m.title) }));
     const row = el('div', 'ed-row');
     const pick = el('input');
@@ -1531,13 +1509,12 @@
     pick.oninput = () => apply(pick.value);
     hex.oninput = () => apply(hex.value.trim());
     const reset = el('button', 'small', t('ed.setAccentReset'));
-    reset.onclick = (e) => { e.preventDefault(); apply(DEFAULT_ACCENT); };
+    reset.onclick = (e) => { e.preventDefault(); apply(QS.theme.accent); };
     row.appendChild(pick);
     row.appendChild(hex);
     row.appendChild(reset);
     field(sec, t('ed.setAccent'), row);
-    checkIn(sec, m, 'pageNumbers', t('ed.setPageNo'), { structure: true });
-    field(sec, t('ed.setSecStyle'), seg(m, 'sectionStyle', QS.SECTION_STYLES.map((k) => [k, t('ed.secStyle.' + k)]), { structure: true }), t('ed.setSecStyleHint'));
+    if (QS.theme.settings) QS.theme.settings(ui, sec, m);
     modal(t('ed.setTitle'), box);
   }
 
@@ -1586,6 +1563,13 @@
       document.body.innerHTML = `<div class="ed-fatal"><h2>${t('ed.fatalTitle')}</h2><p>${t('ed.fatalBody')}</p><pre>${QS.esc(e.message)}</pre></div>`;
       return;
     }
+    try {
+      await QS.useTheme(E.deck);
+    } catch (e) {
+      document.body.innerHTML = `<div class="ed-fatal"><h2>${t('ed.fatalTitle')}</h2><pre>${QS.esc(e.message)}</pre></div>`;
+      return;
+    }
+    renderAddButtons();
     const before = JSON.stringify(E.deck);
     QS.migrate(E.deck);
     E.committed = JSON.stringify(E.deck);
@@ -1595,8 +1579,10 @@
       const si = E.deck.slides.findIndex((x) => x.id === localStorage.getItem('qs-editor-slide'));
       if (si >= 0) E.slideIdx = si;
     } catch (e) {}
-    if (document.fonts) await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.load('500 24px "Futura ND Bundled"', 'PART 0123456789')])).catch(() => {});
+    await QS.loadThemeFonts();
     renderAll();
+    const issues = QS.themeIssues(E.deck);
+    if (issues.length) toast(t('ed.themeIssues', { n: issues.length, theme: QS.theme.id }), 'err');
     setInterval(poll, 1500);
     QS.gitBadge($('#ed-git'));
     setInterval(() => QS.gitBadge($('#ed-git')), 15000);

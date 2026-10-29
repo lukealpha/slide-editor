@@ -1,11 +1,12 @@
-/* IBM Quantum Learning 讲义风格主题（中文版）。幻灯片逻辑尺寸 1280×720。 */
-@font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
-@font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
-@font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
+/* 主题 ibm-quantum：IBM Quantum Learning 讲义风格（中文版）。幻灯片逻辑尺寸 1280×720。
+ * 与主题无关的机制（尺寸、逐步出现、公式序列与变形、块的收起）在 engine/base.css。 */
+@font-face { font-family: 'Plex SC'; font-weight: 300; src: url(../../vendor/fonts/IBMPlexSansSC-Light.woff) format('woff'); }
+@font-face { font-family: 'Plex SC'; font-weight: 400; src: url(../../vendor/fonts/IBMPlexSansSC-Regular.woff) format('woff'); }
+@font-face { font-family: 'Plex SC'; font-weight: 500; src: url(../../vendor/fonts/IBMPlexSansSC-Medium.woff) format('woff'); }
 /* 章节编号用 Futura：macOS 用系统自带的 Futura；其他电脑（Windows）用本机私有的 Futura ND Medium。
  * 该字体是商业授权字体，只放在 vendor/fonts/private/，仅为自用备份提交在私有仓库里，不得再分发；文件不存在时退回 sans-serif */
-@font-face { font-family: 'Futura ND Bundled'; font-weight: 500; src: url(../vendor/fonts/private/FuturaND-Medium.ttf) format('truetype'); }
-@font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
+@font-face { font-family: 'Futura ND Bundled'; font-weight: 500; src: url(../../vendor/fonts/private/FuturaND-Medium.ttf) format('truetype'); }
+@font-face { font-family: 'Plex SC'; font-weight: 600; src: url(../../vendor/fonts/IBMPlexSansSC-SemiBold.woff) format('woff'); }
 
 .qs-slide {
   --accent: #5588F6;
@@ -14,21 +15,15 @@
   --muted: #8d8d8d;
   --panel: #f2f4f8;
   --line: #c1c7cd;
-  position: relative;
-  width: 1280px;
-  height: 720px;
-  overflow: hidden;
   background: #fff;
   color: var(--ink);
   font-family: 'Plex SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
   font-weight: 400;
   font-size: 24px;
   line-height: 1.6;
-  box-sizing: border-box;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
-.qs-slide *, .qs-slide *::before, .qs-slide *::after { box-sizing: border-box; }
 .qs-slide p { margin: 0 0 0.55em; }
 .qs-slide p:last-child { margin-bottom: 0; }
 .qs-slide strong { font-weight: 600; }
@@ -45,6 +40,8 @@
   position: absolute; left: 96px; right: 96px; top: 150px; bottom: 48px;
 }
 .qs-body.qs-split { display: grid; column-gap: 56px; }
+.qs-cols { column-gap: 56px; margin-bottom: 18px; }
+.qs-cols:last-child { margin-bottom: 0; }
 .qs-col { min-width: 0; }
 .qs-block { margin: 0 0 18px; }
 .qs-block:last-child { margin-bottom: 0; }
@@ -59,12 +56,6 @@
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 .qs-hl .katex { color: #fff; }
-/* \chg{…}：公式里变了的部分。出现的那一步是主题色（并弹一下），下一步渐变回黑色 */
-.qs-chg { display: inline-block; transform-origin: 50% 60%; transition: color 0.7s ease; }
-.qs-chg.qs-chg-on { color: var(--accent); transition: color 0.12s ease; }
-/* 含 \chg 的公式序列：旧式子立即让位，只看新元素弹一下（不做上移的交叉淡入） */
-.qs-slide .qs-formula.qs-seq:has(.qs-chg) > .qs-seq-item { transition: opacity 0.12s ease, visibility 0s; }
-.qs-slide .qs-formula.qs-seq:has(.qs-chg) > .qs-seq-item.qs-off { transform: none; }
 .qs-accent { color: var(--accent); font-weight: 600; }
 
 .qs-list { margin: 0; padding-left: 1.3em; }
@@ -75,18 +66,7 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
 .qs-formula { text-align: center; padding: 6px 0; position: relative; }
 .qs-formula.qs-boxed { background: var(--panel); padding: 20px 28px; }
 .qs-formula .katex-display { margin: 0; }
-.qs-formula.qs-seq { display: grid; }
-.qs-formula.qs-seq > .qs-seq-item { grid-area: 1 / 1; align-self: center; }
-/* 框里的多段正文：叠在同一格里；换段时旧的立即让位，只有新的淡入 */
-.qs-box-seq { display: grid; }
-.qs-box-seq > .qs-seq-item { grid-area: 1 / 1; align-self: center; }
-.qs-slide .qs-box-seq > .qs-seq-item.qs-off { transition: none; transform: none; }
-.qs-slide .qs-box-seq > .qs-seq-item.qs-on { transform: none; }
-/* 公式变形用的浮层（放映时向前翻页才出现） */
-.qs-morph { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2; }
-.qs-morph > * { margin: 0; }
 .qs-formula-cap { font-size: 0.8em; color: var(--muted); margin-top: 6px; }
-.qs-tex-err { color: #da1e28; font-family: monospace; font-size: 0.8em; border-bottom: 2px dashed #da1e28; }
 
 /* 表格：表头浅灰底 + 深色下线，正文行之间细线；数字等宽 */
 .qs-table-wrap { display: flex; flex-direction: column; align-items: center; }
@@ -118,7 +98,6 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
 .qs-image figcaption { font-size: 18px; color: var(--muted); margin-top: 6px; }
 .qs-image-empty { border: 2px dashed var(--line); color: var(--muted); padding: 40px; font-size: 18px; }
 
-.qs-anim { position: relative; width: 100%; }
 .qs-anim-missing { border: 2px dashed var(--line); color: var(--muted); height: 100%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 
 
@@ -191,25 +170,16 @@ ol.qs-list li::marker { color: var(--accent); font-weight: 600; }
 }
 
 
-/* ---------- 逐步出现 ---------- */
-.qs-slide [data-step] { transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s; }
-.qs-slide .qs-off { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s 0.25s; }
-.qs-slide [data-anim="rise"].qs-off { transform: translateY(18px); }
-.qs-slide [data-anim="none"] { transition: none; }
-.qs-slide .qs-sub.qs-off { transform: translateY(10px); }
-.qs-slide .qs-seq-item { transition: opacity 0.5s ease, transform 0.5s ease, visibility 0s; }
-.qs-slide .qs-seq-item.qs-off { transform: translateY(-10px); }
+/* ---------- 逐步出现（机制在 engine/base.css）：高亮在出现时扫入 ---------- */
 .qs-slide .qs-on .qs-hl, .qs-slide .qs-hl { animation: qs-sweep 0.6s ease-out 0.15s both; }
 .qs-slide .qs-off .qs-hl { animation: none; background-size: 0 100%; color: var(--ink); }
-.qs-slide.qs-noanim *, .qs-slide.qs-noanim *::before, .qs-slide.qs-noanim *::after { transition: none !important; animation: none !important; }
 @keyframes qs-sweep {
   from { background-size: 0 100%; color: var(--ink); }
   45% { color: var(--ink); }
   to { background-size: 100% 100%; color: #fff; }
 }
 
-/* 编辑器里预览某一步时，尚未出现的内容显示为淡影 */
-.qs-mode-edit.qs-ghost .qs-off { visibility: visible; opacity: 0.13; transform: none; }
+/* 编辑器步骤预览的淡影里，高亮直接显示完整状态 */
 .qs-mode-edit.qs-ghost .qs-off .qs-hl { background-size: 100% 100%; color: #fff; }
 
 /* ---------- 量子线路 ---------- */

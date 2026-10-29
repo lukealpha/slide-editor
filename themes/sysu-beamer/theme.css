@@ -1,0 +1,152 @@
+/* 主题 sysu-beamer：中山大学 Beamer 模板（Berlin / smoothbars / circles）。画布 960×720 = 128mm×96mm，1pt ≈ 2.646px。
+ * 尺寸量自 XeLaTeX 编译的原版 PDF：正文 11pt = 28.9px，\small 26.4px，\tiny 15.8px，标题栏 \large 粗体 31.6px，
+ * 左右文字边距 7mm = 52.5px，页眉页脚的文字边距 .3cm。颜色：主色 sysublue = RGB(51,51,153)，
+ * 页眉 / 页脚的几种深蓝是它和黑色的混合（Beamer 的 palette primary / secondary / tertiary / quaternary）。 */
+@font-face { font-family: 'LM Roman 10'; font-weight: 400; src: url(fonts/lmroman10-regular.otf) format('opentype'); }
+@font-face { font-family: 'LM Roman 10'; font-weight: 700; src: url(fonts/lmroman10-bold.otf) format('opentype'); }
+@font-face { font-family: 'LM Roman 10'; font-weight: 400; font-style: italic; src: url(fonts/lmroman10-italic.otf) format('opentype'); }
+@font-face { font-family: 'Fandol Song'; font-weight: 400; src: url(fonts/FandolSong-Regular.otf) format('opentype'); }
+@font-face { font-family: 'Fandol Song'; font-weight: 700; src: url(fonts/FandolSong-Bold.otf) format('opentype'); }
+
+.qs-slide {
+  --accent: #333399;
+  --ink: #232834;
+  --muted: #5a5f69;
+  --bm-secondary: color-mix(in srgb, var(--accent) 80%, black);
+  --bm-tertiary: color-mix(in srgb, var(--accent) 65%, black);
+  --bm-quaternary: color-mix(in srgb, var(--accent) 50%, black);
+  background: #fff;
+  color: var(--ink);
+  /* 拉丁字母用 Latin Modern，汉字用 Fandol 宋体（同 ctex 的 fontset=fandol） */
+  font-family: 'LM Roman 10', 'Fandol Song', serif;
+  font-weight: 400;
+  font-size: 28.9px;
+  line-height: 1.19; /* 11pt 正文的行距 13pt ≈ 34.4px；用比例，缩放字号时行距跟着变 */
+  font-synthesis: none;
+  text-autospace: normal;
+  text-wrap: pretty; /* 避免段落最后一行只剩一两个字 */
+  -webkit-font-smoothing: antialiased;
+}
+.qs-slide p { margin: 0 0 23px; }
+.qs-slide p:last-child { margin-bottom: 0; }
+.qs-slide strong { font-weight: 700; }
+/* KaTeX 的字体就是 Computer Modern，用 1em 与 TeX 的公式等大 */
+.qs-slide .katex { font-size: 1em; }
+.qs-slide .katex .text, .qs-slide .katex .mord.text { font-family: 'LM Roman 10', 'Fandol Song', KaTeX_Main, serif; }
+
+/* ---------- 页眉：章节导航条 + 平滑过渡到标题栏（smoothbars） ---------- */
+.bm-head {
+  position: absolute; left: 0; right: 0; top: 0; height: 114px; pointer-events: none;
+  background: linear-gradient(to bottom,
+    var(--bm-quaternary) 0, var(--bm-quaternary) 37px, var(--bm-secondary) 45px, var(--bm-secondary) 61px,
+    var(--accent) 67px, var(--accent) 108px, #fff 114px);
+}
+.bm-nav { position: absolute; left: 0; right: 0; top: 0; height: 37px; display: flex; justify-content: space-between; padding: 0 23px; }
+.bm-sec { color: #fff; opacity: 0.5; font-size: 15.8px; line-height: 15.8px; padding-top: 2px; white-space: nowrap; }
+.bm-sec.on { opacity: 1; }
+/* 小圆点：直径 8.4px、间距 10.4px，比节标题缩进约 1.5px（量自原版 PDF） */
+.bm-dots { display: flex; gap: 2px; margin: 2.7px 0 0 1.8px; }
+.bm-dots i { display: block; flex: none; width: 8.4px; height: 8.4px; border-radius: 50%; border: 1.1px solid #fff; }
+.bm-dots i.on { background: #fff; }
+
+/* 标题栏（\frametitle）：由引擎渲染成 .qs-title，放在页眉的蓝色带里 */
+.qs-title {
+  position: absolute; left: 24px; right: 24px; top: 62px; height: 41px; margin: 0; z-index: 1;
+  font-size: 31.6px; line-height: 41px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden;
+}
+.qs-title .katex { color: #fff; }
+
+/* ---------- 页脚：两层（作者 / 指导老师，短标题 / 页码） ---------- */
+.bm-foot { position: absolute; left: 0; right: 0; bottom: 0; height: 49px; color: #fff; font-size: 15.8px; line-height: 15.8px; z-index: 1; }
+.bm-foot > div { display: flex; justify-content: space-between; height: 24.5px; padding: 3px 24px 0; white-space: nowrap; }
+.bm-foot-a { background: var(--bm-secondary); padding-top: 4px !important; }
+.bm-foot-b { background: var(--bm-tertiary); }
+.bm-of { font-style: normal; margin: 0 0.17em; }
+.bm-gap { display: inline-block; width: 0.33em; }
+
+/* 右下角的校徽水印（Beamer 的 \logo，高 3.8cm），压在正文下面 */
+.bm-mark {
+  position: absolute; right: 7px; bottom: 72px; width: 380px; height: 285px; pointer-events: none;
+  background: url(watermark.png) no-repeat center / contain;
+}
+
+/* ---------- 正文区 ---------- */
+/* 文字区的下边界同 Beamer（约在页脚上方 40px），\vfill 的内容停在这里 */
+.qs-body { position: absolute; left: 52.5px; right: 52.5px; top: 161px; bottom: 86px; }
+.bm-notitle .qs-body { top: 82px; }
+.qs-body.qs-split { display: grid; column-gap: 28px; }
+.qs-cols { column-gap: 28px; margin-bottom: 12px; }
+.qs-cols:last-child { margin-bottom: 0; }
+.qs-col { min-width: 0; }
+.qs-block { margin: 0 0 12px; }
+.qs-block:last-child { margin-bottom: 0; }
+/* 页面一开始就是表格时，LaTeX 没有首行的 \topskip，表格的顶线比正文首行高一些 */
+.qs-body > .qs-b-table:first-child { margin-top: -12px; }
+
+.qs-text.qs-size-small { font-size: 26.4px; line-height: 1.2; }
+/* \smallsource：6.2pt 灰色出处，紧跟在图或文字下面 */
+.qs-text.qs-size-source { font-size: 16.4px; line-height: 18.8px; color: var(--muted); }
+.qs-b-text:has(> .qs-size-source) { margin-top: -4px; }
+/* \takeaway：蓝色粗体结论句 */
+.qs-text.qs-size-takeaway { color: var(--accent); font-weight: 700; }
+
+/* \alert 只变色；[[高亮]] 是加粗的主题色 */
+.qs-accent { color: var(--accent); }
+.qs-hl { color: var(--accent); font-weight: 700; }
+
+/* 列表：circles 内部主题——无序是主题色实心小圆，有序是带白色数字的圆 */
+.qs-list { margin: 0; padding: 0; list-style: none; counter-reset: bm-item; }
+.qs-list li { position: relative; padding-left: 57px; margin: 0 0 9px; }
+.qs-list li:last-child { margin-bottom: 0; }
+ul.qs-list li::before {
+  content: ''; position: absolute; left: 28px; top: calc(0.595em - 5px); width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+}
+ol.qs-list li { counter-increment: bm-item; }
+ol.qs-list li::before {
+  content: counter(bm-item); position: absolute; left: 23px; top: calc(0.595em - 10.5px); width: 21px; height: 21px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 14px; line-height: 21px; text-align: center; font-family: 'LM Roman 10', serif;
+}
+
+/* 行间公式：\[ … \]，上下各约 5pt */
+.qs-formula { text-align: center; padding: 4px 0; position: relative; }
+.qs-formula.qs-boxed { border: 1.3px solid var(--accent); padding: 10px 18px; }
+.qs-formula .katex-display { margin: 0; }
+.qs-formula-cap { font-size: 16.4px; line-height: 18.8px; color: var(--muted); margin-top: 4px; }
+
+/* 表格：booktabs 三线表（\toprule .08em、\midrule .05em、\bottomrule），首尾列不留边距（@{…@{}}） */
+.qs-table-wrap { display: flex; flex-direction: column; align-items: center; }
+/* 左对齐的表格靠左放（同 raggedright 段落里的 tabular） */
+.qs-table-wrap.qs-table-alignleft { align-items: flex-start; }
+.qs-table { border-collapse: collapse; line-height: 1.19; }
+.qs-table-full { width: 100%; }
+.qs-table th, .qs-table td { padding: 4px 16px; text-align: var(--qs-table-align, center); vertical-align: top; font-weight: 400; }
+.qs-table th:first-child, .qs-table td:first-child { padding-left: 0; }
+.qs-table th:last-child, .qs-table td:last-child { padding-right: 0; }
+.qs-table thead th { border-top: 2.3px solid var(--ink); border-bottom: 1.4px solid var(--ink); padding-top: 4px; padding-bottom: 4px; }
+.qs-table tbody tr:last-child td, .qs-table tbody tr:last-child th { border-bottom: 2.3px solid var(--ink); padding-bottom: 7px; }
+.qs-table tbody tr:first-child td, .qs-table tbody tr:first-child th { padding-top: 6px; }
+.qs-table:not(:has(thead)) tbody tr:first-child td { border-top: 2.3px solid var(--ink); }
+.qs-table-hcol tbody th { font-weight: 700; }
+.qs-table tr.qs-sub.qs-off { transform: none; }
+.qs-table-cap { font-size: 16.4px; line-height: 18.8px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+/* block 环境：主题色标题 + 正文 */
+.qs-box { padding: 0; }
+.qs-box-label { color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+.qs-box-note { border-left: 3px solid var(--accent); padding-left: 14px; }
+
+.qs-image { margin: 0; text-align: center; }
+.qs-image img { display: inline-block; max-width: 100%; vertical-align: top; }
+.qs-image figcaption { font-size: 16.4px; line-height: 18.8px; color: var(--muted); margin-top: 6px; }
+.qs-image-empty { border: 2px dashed #c6c6c6; color: var(--muted); padding: 30px; font-size: 16px; }
+
+.qs-anim-missing { border: 2px dashed #c6c6c6; color: var(--muted); height: 100%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+/* ---------- 封面（\titlepage，plain 页） ---------- */
+.bm-titlepage { position: absolute; left: 53px; right: 54px; top: 112px; text-align: center; }
+.bm-titlebox { background: var(--accent); color: #fff; padding: 11px 16px 19px; }
+.bm-tp-title { font-size: 38px; line-height: 47.6px; font-weight: 700; }
+.bm-tp-sub { font-weight: 700; margin-top: 7px; }
+.bm-tp-author { margin-top: 39px; line-height: 50.3px; }
+.bm-tp-inst { margin-top: 34px; font-size: 21.1px; line-height: 25px; }
+.bm-tp-date { margin-top: 36px; }

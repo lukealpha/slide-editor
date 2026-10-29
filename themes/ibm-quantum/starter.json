@@ -1,0 +1,7 @@
+{
+  "meta": { "title": "Untitled presentation", "accent": "#5588F6", "pageNumbers": true },
+  "slides": [
+    { "id": "S-CVR", "type": "cover", "title": "Untitled presentation", "author": "", "subtitle": "", "footer": "", "notes": "" },
+    { "id": "S-2ND", "type": "content", "title": "New slide", "layout": "single", "split": 55, "notes": "", "blocks": [] }
+  ]
+}

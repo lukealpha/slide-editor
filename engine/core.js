@@ -3,6 +3,7 @@
   'use strict';
   const QS = (window.QS = window.QS || {});
 
+  // 画布逻辑尺寸由当前主题决定（QS.setTheme 改写），这里是默认主题的值
   QS.W = 1280;
   QS.H = 720;
 
@@ -48,28 +49,14 @@
   QS.makeBlock = function (deck, type) {
     return Object.assign({ id: QS.newId(deck, 'B'), type, step: 0, anim: 'fade' }, QS.BLOCK_TYPES[type].make());
   };
-  /** 封面布局参数（px，基于 1280×720 画布）。每页封面的 coverLayout 只存改动过的项，其余用这里的默认值。 */
-  QS.COVER_LAYOUT = {
-    left: 32, // 左侧文字的左边距
-    titleTop: 22, // 标题区距顶部
-    titleSize: 62, // 主标题字号
-    altSize: 28, // 第二标题字号
-    textWidth: 600, // 左侧文字栏宽度
-    metaBottom: 112, // 汇报人/副标题组距底部（底部留白）
-    metaGap: 64, // 汇报人与副标题之间的间距
-    showArt: true, // 显示插画
-    artSize: 584, // 插画边长
-    artTop: 24, // 插画距顶部
-    artRight: 30, // 插画距右侧
-    footerBottom: 22, // 页脚距底部
-  };
-  QS.coverLayout = (slide) => Object.assign({}, QS.COVER_LAYOUT, slide.coverLayout || {});
 
   QS.makeSlide = function (deck, type) {
     const s = { id: QS.newId(deck, 'S'), type, title: '', notes: '' };
     if (type === 'content') Object.assign(s, { title: T('default.slideTitle'), layout: 'single', split: 55, blocks: [] });
-    if (type === 'section') Object.assign(s, { title: T('default.sectionTitle'), subtitle: '', number: '' });
-    if (type === 'cover') Object.assign(s, { title: T('default.coverTitle'), subtitle: '', author: '', footer: '' });
+    else {
+      const def = QS.theme && QS.theme.slideTypes[type];
+      if (def && def.make) Object.assign(s, def.make(deck));
+    }
     return s;
   };
 
@@ -115,106 +102,102 @@
     return deck;
   };
 
-  /* ---------- 章节页 ---------- */
-  QS.SECTION_STYLES = ['panel', 'roadmap']; // 第一个为默认
-  const SEC = { H: 720, TOP: 72, BOTTOM: 72, NUM_BOTTOM: 337, NUM_HEIGHT: 180 };
-  /** 挂载后计算：路线图竖直位置（当前章节尽量居中，与整体居中加权折中并限制在边距内）；
-   *  大号编号：0–9 中最高的数字刚好 NUM_HEIGHT 高，底边落在 NUM_BOTTOM，左边与标签首字母按墨迹对齐 */
-  /** 只差几像素就能放进一行的标题，略收字距，免得因为浏览器差异换行。
-   *  Chrome 默认在行尾挤掉全角右括号"）"右半边的空白（text-spacing-trim），Safari 不挤，
-   *  所以"量子傅里叶变换算法（QFT）"这种刚好卡在栏宽上的标题在 Safari 里会把"（QFT）"挤到第二行。 */
-  function fitRoadmapTitles(list) {
-    for (const t of list.querySelectorAll('.t')) {
-      t.style.letterSpacing = '';
-      const lh = parseFloat(getComputedStyle(t).lineHeight) || 0;
-      if (!lh || t.offsetHeight < lh * 1.5) continue; // 已经是一行
-      const avail = t.clientWidth;
-      t.style.whiteSpace = 'nowrap';
-      const natural = t.scrollWidth;
-      t.style.whiteSpace = '';
-      const n = Array.from(t.textContent).length;
-      const over = natural - avail;
-      if (over <= 0 || over > avail * 0.04 || !n) continue; // 差得多就照常换行
-      t.style.letterSpacing = (-(over + 1) / n).toFixed(2) + 'px';
+  /* ---------- 主题 ----------
+   * 每份幻灯片在 deck.json 的 meta.theme 里写明主题（没有时用 ibm-quantum），开始时定好，之后一般不再改：
+   * 编辑器里只读显示；换主题要手动改 deck.json，而且不保证内容在另一个主题下还能正确显示——
+   * 主题不支持的页面类型、内容块显示成占位提示，npm run check 报错，导出拒绝执行。
+   * 主题放在编辑器目录的 themes/<id>/：theme.js 调用 QS.registerTheme(def)，theme.css 是全部视觉样式。def 的字段：
+   *   id, name, width / height（画布逻辑尺寸）, accent（默认主题色）, scripts（同目录下另外要载入的脚本）,
+   *   fonts（导出时内嵌的字体，见 export.js）, blocks（可用的内容块类型）, textSizes（正文块的字号选项）,
+   *   slideTypes：{ 类型: { add（"添加"按钮的词条）, make(deck)（新建时的字段）, render(root, slide, deck, opts),
+   *                mount(root, slide), setStep(root, step, animate), destroy(root),
+   *                fields(ui, sec, slide)（编辑器里本页设置的字段）, panels(ui, p, slide)（另外的设置分组）, textKeys } }，
+   *                content 类型的正文由引擎排版，主题可以只给 add / fields；
+   *   decorate(root, slide, deck, opts)：每页渲染完后加页眉页脚、页码等；settings(ui, sec, meta)：设置面板里的主题选项；
+   *   check(deck, report)：npm run check 的额外检查；i18n：{ en: {…}, zh: {…} } 主题专属的界面文字。 */
+  QS.DEFAULT_THEME = 'ibm-quantum';
+  QS.themes = QS.themes || {};
+  QS.registerTheme = function (def) {
+    QS.themes[def.id] = def;
+    if (def.i18n && QS.i18n) for (const lang of Object.keys(def.i18n)) Object.assign((QS.i18n[lang] = QS.i18n[lang] || {}), def.i18n[lang]);
+  };
+  QS.themeId = (deck) => (deck && deck.meta && deck.meta.theme) || QS.DEFAULT_THEME;
+  QS.setTheme = function (def) {
+    QS.theme = def;
+    QS.W = def.width;
+    QS.H = def.height;
+    if (typeof document !== 'undefined') {
+      const st = document.documentElement.style;
+      st.setProperty('--qs-w', def.width + 'px');
+      st.setProperty('--qs-h', def.height + 'px');
+      st.setProperty('--qs-aspect', def.width + ' / ' + def.height);
     }
+  };
+  function loadScript(src) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = src + '?t=' + Date.now();
+      s.onload = ok;
+      s.onerror = () => fail(new Error(src));
+      document.head.appendChild(s);
+    });
   }
-  QS.layoutSection = function (root) {
-    const list = root.querySelector('.qs-rm');
-    if (list && list.offsetHeight) {
-      const inIntro = root.classList.contains('qs-sec-intro');
-      // 最终状态：当前章节高亮，位置在"当前章节居中"与"整体居中"之间加权折中
-      root.classList.add('qs-sec-notrans');
-      root.classList.remove('qs-sec-intro');
-      fitRoadmapTitles(list);
-      const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
-      const listH = list.offsetHeight;
-      let top = (SEC.H - listH) / 2;
-      if (cur >= 0) {
-        const mid = rows[cur].offsetTop + rows[cur].offsetHeight / 2;
-        top = 0.65 * (SEC.H / 2 - mid) + 0.35 * (SEC.H / 2 - listH / 2);
-        top = Math.min(Math.max(top, SEC.TOP), SEC.H - SEC.BOTTOM - listH);
-        if (listH > SEC.H - SEC.TOP - SEC.BOTTOM) top = (SEC.H - listH) / 2;
+  // 主题样式表插在 engine/base.css 后面，保持"基础 → 主题 → 放映器 / 编辑器界面"的层叠顺序
+  function loadCss(href) {
+    return new Promise((ok, fail) => {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = href + '?t=' + Date.now();
+      l.onload = ok;
+      l.onerror = () => fail(new Error(href));
+      const base = document.getElementById('qs-base-css');
+      if (base) base.after(l);
+      else document.head.appendChild(l);
+    });
+  }
+  /** 载入并启用 deck 指定的主题；找不到时抛出错误（编辑器、放映页显示出来，不做猜测）。导出文件里主题已内联。 */
+  QS.useTheme = async function (deck) {
+    const id = QS.themeId(deck);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(QS.t('core.themeMissing', { id }));
+    if (!QS.themes[id]) {
+      const base = 'themes/' + id + '/';
+      try {
+        await Promise.all([loadScript(base + 'theme.js'), loadCss(base + 'theme.css')]);
+        for (const f of (QS.themes[id] && QS.themes[id].scripts) || []) await loadScript(base + f);
+      } catch (e) {
+        throw new Error(QS.t('core.themeMissing', { id }));
       }
-      list.dataset.finalTop = Math.round(top);
-      // 入场第一段的状态：所有章节样式一致，列表整体居中
-      root.classList.add('qs-sec-intro');
-      list.dataset.introTop = Math.round((SEC.H - list.offsetHeight) / 2);
-      if (!inIntro) root.classList.remove('qs-sec-intro');
-      list.style.top = (inIntro ? list.dataset.introTop : list.dataset.finalTop) + 'px';
-      void root.offsetHeight;
-      root.classList.remove('qs-sec-notrans');
+      if (!QS.themes[id]) throw new Error(QS.t('core.themeMissing', { id }));
     }
-    const lab = root.querySelector('.qs-sec-label'), num = root.querySelector('.qs-sec-num');
-    if (!lab || !num || !lab.isConnected) return;
-    const c = document.createElement('canvas').getContext('2d');
-    const lf = getComputedStyle(lab), nf = getComputedStyle(num);
-    c.font = `${lf.fontWeight} ${lf.fontSize} ${lf.fontFamily}`;
-    const first = (lab.textContent.trim()[0] || 'P').toUpperCase();
-    const labInkLeft = parseFloat(lf.left) - c.measureText(first).actualBoundingBoxLeft;
-    c.font = `${nf.fontWeight} 100px ${nf.fontFamily}`;
-    let maxH = 0;
-    for (const d of '0123456789') { const m = c.measureText(d); maxH = Math.max(maxH, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent); }
-    if (!maxH) return;
-    const size = SEC.NUM_HEIGHT / (maxH / 100);
-    num.style.fontSize = size.toFixed(1) + 'px';
-    c.font = `${nf.fontWeight} ${size}px ${nf.fontFamily}`;
-    const D = c.measureText(num.textContent), zero = c.measureText('0');
-    const baseInBox = (size - (D.fontBoundingBoxAscent + D.fontBoundingBoxDescent)) / 2 + D.fontBoundingBoxAscent;
-    num.style.left = (labInkLeft + D.actualBoundingBoxLeft) + 'px';
-    num.style.top = (SEC.NUM_BOTTOM - zero.actualBoundingBoxDescent - baseInBox) + 'px';
+    QS.setTheme(QS.themes[id]);
+    return QS.theme;
+  };
+  /** 预先载入主题的字体（sample 里的字形），避免第一次渲染时用后备字体排版 */
+  QS.loadThemeFonts = function () {
+    if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.all((QS.theme.fonts || []).map((f) => document.fonts.load(`${f.style || 'normal'} ${f.weight || 400} 24px "${f.family}"`, f.sample || 'Aa'))).catch(() => {});
+  };
+  /** 内容与主题不一致的地方（主题没有的页面类型、内容块类型、字号）。npm run check 和导出据此报错 */
+  QS.themeIssues = function (deck, theme) {
+    theme = theme || QS.theme;
+    const out = [];
+    (deck.slides || []).forEach((s, i) => {
+      const w = `Slide ${i + 1} ${s.id}`;
+      if (!theme.slideTypes[s.type]) out.push(`${w}: theme ${theme.id} has no "${s.type}" slide type`);
+      if (s.type !== 'content') return;
+      for (const b of s.blocks || []) {
+        if (!QS.BLOCK_TYPES[b.type]) continue; // 未知类型由 check 另外报
+        if (!theme.blocks.includes(b.type)) out.push(`${w} | ${b.id} ${b.type}: theme ${theme.id} has no "${b.type}" block`);
+        else if (b.type === 'text' && b.size && !(theme.textSizes || ['normal']).includes(b.size)) out.push(`${w} | ${b.id} text: theme ${theme.id} has no text size "${b.size}"`);
+      }
+    });
+    return out;
   };
 
-  /** 入场两段式：先以统一样式、整体居中的状态让所有章节依次冒出；全部停稳后演化出当前章节的高亮和最终位置 */
-  QS.playSectionIntro = function (root) {
-    const list = root.querySelector('.qs-rm');
-    if (!list || list.dataset.introTop === undefined) return;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return QS.finishSectionIntro(root);
-    clearTimeout(root._secTimer);
-    root.classList.add('qs-sec-notrans', 'qs-sec-intro');
-    list.style.top = list.dataset.introTop + 'px';
-    void root.offsetHeight;
-    root.classList.remove('qs-sec-notrans');
-    // 第二段在最后一行"停稳"时立即开始：单行回弹动画 620ms，在 87%（约 540ms）时与终点偏差已小于 1px
-    const start = parseFloat(getComputedStyle(root).getPropertyValue('--sec-rows')) * 1000 || 0;
-    const settle = start + (list.children.length - 1) * 90 + 540;
-    root._secTimer = setTimeout(() => evolveSection(root), settle);
-  };
-  QS.finishSectionIntro = function (root) {
-    clearTimeout(root._secTimer);
-    (root._secAnims || []).forEach((a) => a.cancel());
-    root._secAnims = [];
-    const list = root.querySelector('.qs-rm');
-    root.classList.remove('qs-sec-intro');
-    if (list && list.dataset.finalTop !== undefined) list.style.top = list.dataset.finalTop + 'px';
-  };
-
-  /* ---------- 第二段："绷紧的弹簧突然释放" ----------
-   * 弹簧在画面出现前就已压紧（不可见），第二段的第一帧就是释放：
-   *   线条：以极大初速度从 0 弹出，高速时被拉长变细；冲过终点后急刹（过冲短、压扁变粗），随后以松弛的弹簧来回晃几下停稳；
-   *   标题：同一瞬间从小号弹性放大（FLIP：字号立即变为最终值，用 transform 从原尺寸弹过去），冲过头再回弹；编号跟着跳一下；
-   *   其他行：被变大的当前章节推开，像波纹一样离得越远越晚动，各自带弹性；整个列表也弹性地移到最终位置；
-   *   副标题：晚一拍被"甩"出来。
-   * 所有运动由阻尼振子逐帧积分得到，采样成 Web Animations 关键帧。 */
+  /* ---------- 弹簧动画（主题和动画组件共用） ----------
+   * spring() 逐帧积分一个阻尼振子，从 x0 运动到 1；springFrames() 把采样变成 Web Animations 关键帧。
+   * 典型用法是"绷紧的弹簧突然释放"：弹簧在画面出现前就已压紧（不可见），第一帧就是释放——以极大初速度弹出，
+   * 冲过终点后急刹（过冲短），随后以松弛的弹簧来回晃几下停稳。 */
   function spring(o) {
     // 阻尼分三段：释放时用 damping；第一次冲过终点后改用 brake 急刹（过冲短）；
     // 之后进入弛豫：换成更软的弹簧（ringFreq / ringDamping，缺省沿用 freq / damping），慢慢地、松松地晃停
@@ -243,6 +226,8 @@
     for (let i = 0; i <= n; i++) frames.push(Object.assign({ offset: i / n }, map(samples[Math.round((i / n) * (samples.length - 1))], i / n)));
     return { frames, duration: ((samples.length - 1) / 240) * 1000 };
   }
+  QS.spring = spring;
+  QS.springFrames = springFrames;
   /* ---------- 公式序列的变形：两个相邻公式里相同的字形从旧位置滑到新位置 ----------
    * 只对设了 morph 的公式块、放映时向前一步（animate）时播放。做法：把旧公式的每个字形（KaTeX 的叶子元素、svg 定界符、分数线）
    * 复制到一层浮层上，按出现顺序做最长公共子序列匹配；匹配上的从旧位置滑到新位置（并按尺寸缩放），
@@ -442,73 +427,6 @@
     }
   }
 
-  function evolveSection(root) {
-    const list = root.querySelector('.qs-rm');
-    if (!list || !root.isConnected) return;
-    const rows = Array.from(list.children), cur = rows.findIndex((r) => r.classList.contains('on'));
-    const k = root.getBoundingClientRect().height / 720 || 1; // 画布缩放（FLIP 用未缩放坐标）
-    const row = rows[cur], title = row && row.querySelector('.t'), num = row && row.querySelector('.n');
-    const sub = row && row.querySelector('.s'), line = row && row.querySelector('.qs-rm-line');
-    // FIRST：第一段末的状态
-    const rel = (el, base) => { const a = el.getBoundingClientRect(), b = base.getBoundingClientRect(); return { x: (a.left - b.left) / k, y: (a.top - b.top) / k }; };
-    const firstRowY = rows.map((r) => r.offsetTop);
-    const firstTitle = title && rel(title, row), firstSize = title && parseFloat(getComputedStyle(title).fontSize);
-    // 切到最终状态（无过渡），LAST
-    root.classList.add('qs-sec-notrans');
-    root.classList.remove('qs-sec-intro');
-    list.style.top = list.dataset.finalTop + 'px';
-    void root.offsetHeight;
-    const lastRowY = rows.map((r) => r.offsetTop);
-    const lastTitle = title && rel(title, row), lastSize = title && parseFloat(getComputedStyle(title).fontSize);
-    const anims = (root._secAnims = []);
-    const play = (el, f, opt) => el && anims.push(el.animate(f.frames, Object.assign({ duration: f.duration, fill: 'both', easing: 'linear' }, opt)));
-
-    // 整个列表：从第一段的居中位置弹到最终位置
-    const dList = (+list.dataset.introTop || 0) - (+list.dataset.finalTop || 0);
-    if (dList) play(list, springFrames(spring({ freq: 3.2, damping: 0.35, v0: 0 }), (s) => ({ transform: `translateY(${(dList * (1 - s.x)).toFixed(2)}px)` })));
-
-    // 各行：被推开，像波纹一样按与当前章节的距离错开
-    rows.forEach((r, i) => {
-      const dy = firstRowY[i] - lastRowY[i];
-      if (Math.abs(dy) < 0.5) return;
-      play(r, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.5, v0: 3, ringFreq: 2.8, ringDamping: 0.15 }), (s) => ({ transform: `translateY(${(dy * (1 - s.x)).toFixed(2)}px)` })), { delay: Math.abs(i - cur) * 28 });
-    });
-
-    if (title) {
-      // 标题：字号已是最终值，用 transform 从第一段的尺寸和位置弹过去（左上角为原点）
-      const s0 = firstSize / lastSize, dx = firstTitle.x - lastTitle.x, dy = firstTitle.y - lastTitle.y;
-      title.style.transformOrigin = '0 0';
-      play(title, springFrames(spring({ freq: 3.75, damping: 0.22, brake: 1.7, v0: 1, ringFreq: 2.8, ringDamping: 0.15 }), (s) => {
-        const p = 1 - s.x, sc = 1 - (1 - s0) * p;
-        return { transform: `translate(${(dx * p).toFixed(2)}px, ${(dy * p).toFixed(2)}px) scale(${sc.toFixed(4)})` };
-      }));
-      play(title, { frames: [{ color: '#a8a8a8' }, { color: getComputedStyle(title).color }], duration: 160 }, { easing: 'ease-out' });
-    }
-    if (num) {
-      num.style.display = 'inline-block';
-      num.style.transformOrigin = '0 70%';
-      play(num, springFrames(spring({ x0: 1, v0: 2.5, freq: 3.3, damping: 0.15 }), (s) => ({ transform: `scale(${(1 + (s.x - 1) * 0.9).toFixed(4)})` })));
-      play(num, { frames: [{ color: '#a8a8a8' }, { color: getComputedStyle(num).color }], duration: 140 }, { easing: 'ease-out' });
-    }
-    if (line) {
-      // 线条：极大初速度弹出；粗细随速度和加速度变化（快时拉细，急停时压扁）
-      const S = spring({ freq: 4.5, damping: 0.24, brake: 1.9, v0: 4, ringFreq: 3.3, ringDamping: 0.15 });
-      const vmax = Math.max(...S.map((q) => Math.abs(q.v))), amax = Math.max(...S.slice(4).map((q) => Math.abs(q.a))) || 1;
-      play(line, springFrames(S, (s) => {
-        const sp = Math.abs(s.v) / vmax, squash = (Math.abs(s.a) / amax) * (1 - sp);
-        const sy = Math.max(0.35, 1 - 0.6 * sp + 0.9 * squash);
-        return { transform: `scaleX(${Math.max(0, s.x).toFixed(4)}) scaleY(${sy.toFixed(3)})` };
-      }));
-    }
-    if (sub) {
-      play(sub, springFrames(spring({ freq: 3.2, damping: 0.2, v0: 0 }), (s, u) => ({
-        transform: `translateY(${(-22 * (1 - s.x)).toFixed(2)}px)`,
-        opacity: Math.min(1, u * 5).toFixed(3),
-      })), { delay: 50 });
-    }
-    root.classList.remove('qs-sec-notrans');
-  }
-
   /* ---------- 动画组件注册 ---------- */
   QS.animations = QS.animations || {};
   QS.registerAnimation = function (def) {
@@ -544,10 +462,10 @@
         return 0;
     }
   };
-  /** 动画组件各阶段（1…span）播放的步骤。默认紧跟块出现的步骤连续递增；
-   *  b.stageSteps 可逐个指定（中间允许空出几步给文字），按严格递增规整：缺省项 = 前一项 + 1 */
+  /** 动画组件各阶段（1…span）播放的步骤；逐行出现的表格里，第 2 行起各行出现的步骤（第 1 行随块出现）。
+   *  默认紧跟块出现的步骤连续递增；b.stageSteps 可逐个指定（中间允许空出几步给别的内容），按严格递增规整：缺省项 = 前一项 + 1 */
   QS.stageSteps = function (b) {
-    const span = b.type === 'anim' ? QS.blockSpan(b) : 0;
+    const span = b.type === 'anim' || (b.type === 'table' && b.stepwise) ? QS.blockSpan(b) : 0;
     const custom = Array.isArray(b.stageSteps) ? b.stageSteps : [];
     const out = [];
     let prev = b.step || 0;
@@ -581,6 +499,7 @@
   }
   QS.splitSeq = splitSeq;
   /** 表格：每行一行，单元格用 | 分隔（$…$ 里的 | 不算；\| 表示字面的 |） */
+  QS.tableWidths = (src) => String(src || '').split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n > 0);
   QS.tableRows = function (src) {
     return splitLines(src).map((line) => {
       const cells = [];
@@ -621,7 +540,7 @@
     }
   };
 
-  /** 段内标记：[[高亮]]、{{蓝字}}、**加粗**、$行内公式$、$$行间公式$$ */
+  /** 段内标记：[[高亮]]、{{蓝字}}、**加粗**、*斜体*、$行内公式$、$$行间公式$$ */
   QS.inline = function (src) {
     const math = [];
     let s = String(src || '').replace(/\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g, (m, d, i) => {
@@ -632,6 +551,7 @@
       .replace(/\[\[([\s\S]+?)\]\]/g, '<span class="qs-hl">$1</span>')
       .replace(/\{\{([\s\S]+?)\}\}/g, '<span class="qs-accent">$1</span>')
       .replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
       .replace(/\n/g, '<br>');
     return s.replace(/\u0001(\d+)\u0002/g, (m, i) => math[+i]);
   };
@@ -668,6 +588,7 @@
     },
     list(b, ctx) {
       const e = el(b.ordered ? 'ol' : 'ul', 'qs-list');
+      if (b.size) e.style.fontSize = b.size + '%';
       splitLines(b.items).forEach((line, i) => {
         const li = el('li', '', QS.inline(line.replace(/^\s*[-*]\s+/, '')));
         if (b.stepwise) {
@@ -701,10 +622,20 @@
     table(b) {
       const rows = QS.tableRows(b.rows);
       const ncol = Math.max(1, ...rows.map((r) => r.length));
-      const e = el('div', 'qs-table-wrap');
+      const e = el('div', 'qs-table-wrap' + (b.align === 'left' ? ' qs-table-alignleft' : ''));
       const tb = el('table', 'qs-table' + (b.full ? ' qs-table-full' : '') + (b.headerCol ? ' qs-table-hcol' : ''));
       if (b.size) tb.style.fontSize = b.size + '%';
       tb.style.setProperty('--qs-table-align', b.align === 'left' ? 'left' : 'center');
+      // 列宽（可选）：逗号分隔的百分比，如 "12, 43, 35"，对应 LaTeX 的 p{.43\linewidth}；设了列宽时表格按固定布局排
+      const widths = QS.tableWidths(b.widths);
+      if (widths.length) {
+        tb.classList.add('qs-table-fixed');
+        const cg = tb.appendChild(el('colgroup'));
+        for (let c = 0; c < ncol; c++) {
+          const col = cg.appendChild(el('col'));
+          if (widths[c]) col.style.width = widths[c] + '%';
+        }
+      }
       const head = b.header !== false && rows.length ? rows[0] : null;
       if (head) {
         const tr = el('tr');
@@ -712,6 +643,7 @@
         tb.appendChild(el('thead')).appendChild(tr);
       }
       const body = tb.appendChild(el('tbody'));
+      const rowSteps = QS.stageSteps(b);
       rows.slice(head ? 1 : 0).forEach((r, i) => {
         const tr = el('tr');
         for (let c = 0; c < ncol; c++) {
@@ -720,7 +652,7 @@
           tr.appendChild(td);
         }
         if (b.stepwise) {
-          tr.dataset.step = (b.step || 0) + i;
+          tr.dataset.step = i ? rowSteps[i - 1] : b.step || 0;
           tr.classList.add('qs-sub');
         }
         body.appendChild(tr);
@@ -775,15 +707,19 @@
       return e;
     },
     spacer(b) {
-      const e = el('div', 'qs-spacer');
-      e.style.height = (b.height || 24) + 'px';
+      // fill：撑满本栏剩下的高度（同 LaTeX 的 \vfill），height 是最小高度
+      const e = el('div', 'qs-spacer' + (b.fill ? ' qs-spacer-fill' : ''));
+      if (b.fill) e.style.minHeight = (b.height || 0) + 'px';
+      else e.style.height = (b.height || 24) + 'px';
       return e;
     },
   };
 
   function renderBlock(b, ctx) {
     const r = RENDER[b.type];
-    const inner = r ? r(b, ctx) : el('div', '', esc(QS.t('core.unknownBlock', { type: b.type })));
+    const inner = !r ? el('div', '', esc(QS.t('core.unknownBlock', { type: b.type })))
+      : !QS.theme.blocks.includes(b.type) ? el('div', 'qs-unsupported', esc(QS.t('core.unsupportedBlock', { type: b.type, theme: QS.theme.id })))
+      : r(b, ctx);
     const wrap = el('div', 'qs-block qs-b-' + b.type);
     wrap.dataset.blockId = b.id;
     wrap.dataset.step = b.step || 0;
@@ -795,6 +731,11 @@
       wrap.classList.add('qs-until');
     }
     if (b.reserve === false) wrap.classList.add('qs-noreserve');
+    // delay（ms）：同一步里晚一点再出现（例如等同一步的动画画完）；只影响出现，不影响消失
+    if (b.delay > 0) {
+      wrap.dataset.delay = b.delay;
+      wrap.style.setProperty('--qs-delay', b.delay + 'ms');
+    }
     wrap.appendChild(inner);
     return wrap;
   }
@@ -808,92 +749,56 @@
     opts = opts || {};
     const mode = opts.mode || 'present';
     const root = el('div', 'qs-slide qs-type-' + slide.type + ' qs-mode-' + mode);
-    root.style.setProperty('--accent', (deck.meta && deck.meta.accent) || '#5588F6');
+    const theme = QS.theme, kind = theme.slideTypes[slide.type];
+    const accent = (deck.meta && deck.meta.accent) || theme.accent || '#5588F6';
+    root.style.setProperty('--accent', accent);
     root.dataset.slideId = slide.id;
     const ctx = { anims: [], mode };
 
-    if (slide.type === 'cover') {
-      // 封面由四个模块组成：标题区、汇报人/副标题组、插画、页脚；位置和大小来自 coverLayout
-      const L = QS.coverLayout(slide);
-      const px = (v) => v + 'px';
-      const left = el('div', 'qs-cover-text');
-      Object.assign(left.style, { left: px(L.left), top: px(L.titleTop), width: px(L.textWidth) });
-      const h1 = el('h1', 'qs-cover-title', QS.inline(slide.title));
-      h1.style.fontSize = px(L.titleSize);
-      left.appendChild(h1);
-      if (slide.titleAlt) {
-        const alt = el('div', 'qs-cover-title-alt', QS.inline(slide.titleAlt));
-        alt.style.fontSize = px(L.altSize);
-        left.appendChild(alt);
-      }
-      root.appendChild(left);
-      if (slide.author || slide.subtitle) {
-        const meta = el('div', 'qs-cover-meta');
-        Object.assign(meta.style, { left: px(L.left), bottom: px(L.metaBottom), width: px(L.textWidth) });
-        meta.style.setProperty('--meta-gap', px(L.metaGap));
-        if (slide.subtitle) meta.appendChild(el('div', 'qs-cover-sub', QS.inline(slide.subtitle)));
-        if (slide.author) meta.appendChild(el('div', 'qs-cover-author', QS.inline(slide.author)));
-        root.appendChild(meta);
-      }
-      if (L.showArt && L.artSize > 0) {
-        const art = el('div', 'qs-cover-art');
-        Object.assign(art.style, { right: px(L.artRight), top: px(L.artTop), width: px(L.artSize), height: px(L.artSize) });
-        if (QS.coverArt) art.innerHTML = QS.coverArt();
-        root.appendChild(art);
-      }
-      if (slide.footer) {
-        const foot = el('div', 'qs-cover-footer', QS.inline(slide.footer));
-        Object.assign(foot.style, { left: px(L.left), bottom: px(L.footerBottom) });
-        root.appendChild(foot);
-      }
-    } else if (slide.type === 'section') {
-      // 路线图列出整份幻灯片的所有章节页，当前章节放大高亮；panel 样式在左侧加主题色面板和大号编号
-      const style = QS.SECTION_STYLES.includes(deck.meta && deck.meta.sectionStyle) ? deck.meta.sectionStyle : QS.SECTION_STYLES[0];
-      root.classList.add('qs-secstyle-' + style);
-      const secs = deck.slides.filter((s) => s.type === 'section' && (!s.hidden || s.id === slide.id));
-      const cur = secs.findIndex((s) => s.id === slide.id);
-      const label = (s, i) => String(s.number || '').trim() || 'Part ' + (i + 1);
-      if (style === 'panel') {
-        const num = label(slide, cur);
-        const digits = (num.match(/\d+/) || [String(cur + 1)])[0];
-        const word = num.replace(/\d+/, '').replace(/\s+/g, ' ').trim() || 'Part';
-        root.appendChild(el('div', 'qs-sec-panel', `<div class="qs-sec-label qs-futura">${esc(word)}</div><div class="qs-sec-num qs-futura">${esc(digits)}</div>`));
-      }
-      const list = el('ol', 'qs-rm');
-      secs.forEach((s, i) => {
-        const on = i === cur;
-        const li = list.appendChild(el('li', on ? 'on' : '',
-          `<span class="n qs-futura">${esc(label(s, i))}</span><span class="t${on ? ' qs-section-title' : ''}">${QS.inline(s.title)}</span>` +
-          (on && s.subtitle ? `<span class="s">${QS.inline(s.subtitle)}</span>` : '') +
-          (on ? '<i class="qs-rm-line"></i>' : '')));
-        li.style.setProperty('--i', i); // 入场动画按顺序错开
-      });
-      root.appendChild(list);
+    if (!kind) {
+      root.appendChild(el('div', 'qs-unsupported', esc(QS.t('core.unsupportedSlide', { type: slide.type, theme: theme.id }))));
+    } else if (kind.render) {
+      kind.render(root, slide, deck, opts);
     } else {
       if (slide.title) root.appendChild(el('h1', 'qs-title', QS.inline(slide.title)));
       const body = el('div', 'qs-body');
       const split = slide.layout === 'split';
-      if (split) {
+      const r = Math.min(80, Math.max(20, slide.split || 55));
+      const grid = r + 'fr ' + (100 - r) + 'fr';
+      const newCols = (parent) => {
+        const c = { left: el('div', 'qs-col qs-col-left'), right: el('div', 'qs-col qs-col-right') };
+        parent.appendChild(c.left);
+        parent.appendChild(c.right);
+        return c;
+      };
+      // 两栏：整页分左右两栏；有 col: 'full' 的块时改成混排——连续的左 / 右栏块组成一个两栏区（.qs-cols），
+      // 通栏块单独占一行，按块的顺序从上往下排
+      const mixed = split && (slide.blocks || []).some((b) => b.col === 'full');
+      let cols = null;
+      if (split && !mixed) {
         body.classList.add('qs-split');
-        const r = Math.min(80, Math.max(20, slide.split || 55));
-        body.style.gridTemplateColumns = r + 'fr ' + (100 - r) + 'fr';
+        body.style.gridTemplateColumns = grid;
+        cols = newCols(body);
       }
-      const cols = split ? { left: el('div', 'qs-col qs-col-left'), right: el('div', 'qs-col qs-col-right') } : null;
-      if (cols) {
-        body.appendChild(cols.left);
-        body.appendChild(cols.right);
-      }
+      if (mixed) body.classList.add('qs-split-mixed');
       for (const b of slide.blocks || []) {
         const node = renderBlock(b, ctx);
-        if (cols) (b.col === 'right' ? cols.right : cols.left).appendChild(node);
-        else body.appendChild(node);
+        if (mixed && b.col === 'full') {
+          cols = null;
+          body.appendChild(node);
+        } else if (split) {
+          if (!cols) {
+            const row = body.appendChild(el('div', 'qs-cols'));
+            row.style.gridTemplateColumns = grid;
+            cols = newCols(row);
+          }
+          (b.col === 'right' ? cols.right : cols.left).appendChild(node);
+        } else body.appendChild(node);
       }
       root.appendChild(body);
     }
 
-    if (deck.meta && deck.meta.pageNumbers && slide.type === 'content' && opts.pageNo) {
-      root.appendChild(el('div', 'qs-pageno', String(opts.pageNo)));
-    }
+    if (theme.decorate) theme.decorate(root, slide, deck, opts);
 
     // 分步内容一律从隐藏状态开始，避免翻页时后面步骤的内容先闪现再淡出
     root.querySelectorAll('[data-step]').forEach((n) => n.classList.add('qs-off'));
@@ -905,7 +810,10 @@
         const params = QS.animParams(a.block);
         const api = {
           mode,
-          accent: (deck.meta && deck.meta.accent) || '#5588F6',
+          accent,
+          // 当前主题：组件可以按主题调整外观，用 cssVar('--ink') 之类取主题的颜色（字体从幻灯片继承，不用另外设置）
+          theme: { id: theme.id, width: theme.width, height: theme.height },
+          cssVar: (name) => getComputedStyle(a.el).getPropertyValue(name).trim(),
           blockId: a.block.id,
           emit: (state) => opts.onAnimState && opts.onAnimState(a.block.id, state),
         };
@@ -925,11 +833,7 @@
         if (mounted) return;
         mounted = true;
         pending.forEach((f) => f());
-        if (slide.type === 'section') {
-          QS.layoutSection(root);
-          // 字体（Futura / Futura ND）如果稍后才载入，载入后重新计算一次
-          if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => root.isConnected && QS.layoutSection(root));
-        }
+        if (kind && kind.mount) kind.mount(root, slide);
         if (current >= 0) api.setStep(current, false);
       },
       setStep(step, animate) {
@@ -944,7 +848,7 @@
             })
           : [];
         root.classList.toggle('qs-noanim', !animate);
-        if (slide.type === 'section') animate ? QS.playSectionIntro(root) : QS.finishSectionIntro(root);
+        if (kind && kind.setStep) kind.setStep(root, step, animate);
         root.querySelectorAll('[data-step]').forEach((n) => {
           const s = +n.dataset.step;
           const u = n.dataset.until !== undefined ? +n.dataset.until : Infinity;
@@ -990,7 +894,7 @@
         for (const k of controllers) if (k.id === blockId && k.c.setState) k.c.setState(state);
       },
       destroy() {
-        clearTimeout(root._secTimer);
+        if (kind && kind.destroy) kind.destroy(root);
         for (const k of controllers) if (k.c.destroy) try { k.c.destroy(); } catch (e) {}
         root.remove();
       },

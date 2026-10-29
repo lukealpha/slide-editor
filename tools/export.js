@@ -3,7 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { SLIDE, resolve, load, animationFiles, readDeck } = require('./engine');
+const { SLIDE, resolve, load, animationFiles, readDeck, useTheme } = require('./engine');
 
 (async () => {
   const QS = load('engine/i18n.js', 'engine/core.js', 'engine/fontsubset.js', 'engine/export.js');
@@ -14,6 +14,7 @@ const { SLIDE, resolve, load, animationFiles, readDeck } = require('./engine');
     animationFiles,
   };
   const deck = QS.migrate(readDeck());
+  useTheme(deck);
   const { html, name } = await QS.exportDeck(deck, (msg) => console.log('  ' + msg), io);
   fs.mkdirSync(path.join(SLIDE, 'export'), { recursive: true });
   const dest = path.join(SLIDE, 'export', name);

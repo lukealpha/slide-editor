@@ -19,11 +19,11 @@ body { font-family: 'Plex SC', 'PingFang SC', sans-serif; }
 /* 演讲者视图 */
 .qs-page-presenter { background: #161616; color: #f4f4f4; overflow: hidden; }
 .qs-pv { position: absolute; inset: 0; display: grid; grid-template-columns: 62fr 38fr; grid-template-rows: 1fr 56px; gap: 14px; padding: 14px; box-sizing: border-box; }
-.qs-pv-cur { position: relative; align-self: center; aspect-ratio: 16 / 9; max-height: 100%; background: #000; outline: 2px solid var(--qs-accent, #5588F6); }
+.qs-pv-cur { position: relative; align-self: center; aspect-ratio: var(--qs-aspect, 16 / 9); max-height: 100%; background: #000; outline: 2px solid var(--qs-accent, #5588F6); }
 .qs-pv-cur .qs-player { position: absolute; }
 .qs-pv-side { display: flex; flex-direction: column; min-height: 0; }
 .qs-pv-label { font-size: 13px; color: #a8a8a8; margin: 0 0 6px; letter-spacing: 0.08em; }
-.qs-pv-next { position: relative; aspect-ratio: 16 / 9; background: #000; margin-bottom: 16px; overflow: hidden; flex: none; }
+.qs-pv-next { position: relative; aspect-ratio: var(--qs-aspect, 16 / 9); background: #000; margin-bottom: 16px; overflow: hidden; flex: none; }
 .qs-pv-end { color: #8d8d8d; display: flex; align-items: center; justify-content: center; height: 100%; }
 .qs-pv-notes { flex: 1; overflow: auto; background: #262626; padding: 16px 20px; font-size: 24px; line-height: 1.6; }
 .qs-pv-notes p { margin: 0 0 0.6em; }
@@ -40,8 +40,7 @@ body { font-family: 'Plex SC', 'PingFang SC', sans-serif; }
 /* 打印 */
 .qs-page-print { background: #e0e0e0; }
 .qs-print-bar { position: sticky; top: 0; z-index: 3; display: flex; gap: 16px; align-items: center; padding: 10px 20px; background: #161616; color: #f4f4f4; font-size: 15px; }
-.qs-print-page { width: 1280px; height: 720px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,.2); overflow: hidden; }
-@page { size: 1280px 720px; margin: 0; }
+.qs-print-page { width: var(--qs-w, 1280px); height: var(--qs-h, 720px); margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,.2); overflow: hidden; }
 @media print {
   .qs-page-print { background: #fff; }
   .qs-print-bar { display: none; }

@@ -1,0 +1,60 @@
+/* 与主题无关的幻灯片机制：画布尺寸（取自当前主题，见 QS.setTheme）、逐步出现、公式序列与变形、\chg、占位提示。
+ * 视觉样式（字体、颜色、各内容块的外观）全部在 themes/<id>/theme.css；主题样式表在本文件之后载入，可以覆盖这里的规则。 */
+.qs-slide {
+  position: relative;
+  width: var(--qs-w, 1280px);
+  height: var(--qs-h, 720px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.qs-slide *, .qs-slide *::before, .qs-slide *::after { box-sizing: border-box; }
+
+/* \chg{…}：公式里变了的部分。出现的那一步是主题色（并弹一下），下一步渐变回黑色 */
+.qs-chg { display: inline-block; transform-origin: 50% 60%; transition: color 0.7s ease; }
+.qs-chg.qs-chg-on { color: var(--accent); transition: color 0.12s ease; }
+/* 含 \chg 的公式序列：旧式子立即让位，只看新元素弹一下（不做上移的交叉淡入） */
+.qs-slide .qs-formula.qs-seq:has(.qs-chg) > .qs-seq-item { transition: opacity 0.12s ease, visibility 0s; }
+.qs-slide .qs-formula.qs-seq:has(.qs-chg) > .qs-seq-item.qs-off { transform: none; }
+
+/* 公式序列：叠在同一格里依次变换 */
+.qs-formula.qs-seq { display: grid; }
+.qs-formula.qs-seq > .qs-seq-item { grid-area: 1 / 1; align-self: center; }
+/* 框里的多段正文：叠在同一格里；换段时旧的立即让位，只有新的淡入 */
+.qs-box-seq { display: grid; }
+.qs-box-seq > .qs-seq-item { grid-area: 1 / 1; align-self: center; }
+.qs-slide .qs-box-seq > .qs-seq-item.qs-off { transition: none; transform: none; }
+.qs-slide .qs-box-seq > .qs-seq-item.qs-on { transform: none; }
+/* 公式变形用的浮层（放映时向前翻页才出现） */
+.qs-morph { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2; }
+.qs-morph > * { margin: 0; }
+.qs-tex-err { color: #da1e28; font-family: monospace; font-size: 0.8em; border-bottom: 2px dashed #da1e28; }
+.qs-anim { position: relative; width: 100%; }
+
+/* 两栏与通栏混排：每个两栏区是一个网格，栏距、上下间距由主题决定 */
+.qs-cols { display: grid; }
+.qs-table-fixed { table-layout: fixed; }
+
+/* 撑满剩余高度的间隔（spacer 的 fill）：只有用到它的那一栏才改成纵向 flex 排版，其他页面不受影响 */
+.qs-body:has(> .qs-block > .qs-spacer-fill), .qs-col:has(> .qs-block > .qs-spacer-fill) { display: flex; flex-direction: column; }
+.qs-block:has(> .qs-spacer-fill) { flex: 1 1 auto; display: flex; flex-direction: column; }
+.qs-spacer-fill { flex: 1 1 auto; }
+
+/* 主题不支持的页面类型 / 内容块（换了主题之后才会出现） */
+.qs-unsupported { margin: 24px; padding: 18px 22px; border: 2px dashed #da1e28; color: #da1e28; background: #fff5f5; font: 600 20px/1.4 sans-serif; }
+.qs-block .qs-unsupported { margin: 0; }
+
+/* ---------- 逐步出现 ---------- */
+.qs-slide [data-step] { transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s; }
+.qs-slide .qs-off { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s 0.25s; }
+.qs-slide [data-anim="rise"].qs-off { transform: translateY(18px); }
+.qs-slide [data-anim="none"] { transition: none; }
+.qs-slide .qs-sub.qs-off { transform: translateY(10px); }
+.qs-slide .qs-seq-item { transition: opacity 0.5s ease, transform 0.5s ease, visibility 0s; }
+.qs-slide .qs-seq-item.qs-off { transform: translateY(-10px); }
+.qs-slide.qs-noanim *, .qs-slide.qs-noanim *::before, .qs-slide.qs-noanim *::after { transition: none !important; animation: none !important; }
+
+/* 块的 delay：出现时晚一点开始 */
+.qs-slide [data-step][data-delay].qs-on { transition-delay: var(--qs-delay, 0s); }
+
+/* 编辑器里预览某一步时，尚未出现的内容显示为淡影 */
+.qs-mode-edit.qs-ghost .qs-off { visibility: visible; opacity: 0.13; transform: none; }

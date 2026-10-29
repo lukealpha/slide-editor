@@ -1,4 +1,4 @@
-/* 在 Node 里载入浏览器端引擎代码（core / circuit / fontsubset / export），供命令行工具复用 */
+/* 在 Node 里载入浏览器端引擎代码（core / circuit / fontsubset / export）和幻灯片的主题，供命令行工具复用 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -36,4 +36,19 @@ function readDeck() {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-module.exports = { ROOT, SLIDE, resolve, load, animationFiles, readDeck };
+/** 载入并启用 deck 的主题（themes/<id>/theme.js 及其 scripts）；找不到时报错退出 */
+function useTheme(deck) {
+  const QS = globalThis.QS;
+  const id = QS.themeId(deck);
+  const dir = 'themes/' + id + '/';
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || !fs.existsSync(path.join(ROOT, dir, 'theme.js'))) {
+    console.error(`  ✗ meta.theme: theme "${id}" not found (expected ${dir}theme.js)`);
+    process.exit(1);
+  }
+  load(dir + 'theme.js');
+  for (const f of QS.themes[id].scripts || []) load(dir + f);
+  QS.setTheme(QS.themes[id]);
+  return QS.theme;
+}
+
+module.exports = { ROOT, SLIDE, resolve, load, animationFiles, readDeck, useTheme };

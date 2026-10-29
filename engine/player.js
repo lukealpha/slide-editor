@@ -3,7 +3,7 @@
   'use strict';
   const QS = (window.QS = window.QS || {});
 
-  /* ---------- 把 1280×720 的幻灯片缩放进任意容器 ---------- */
+  /* ---------- 把幻灯片（画布尺寸取自主题）缩放进任意容器 ---------- */
   function fit(frame, inner) {
     const w = frame.clientWidth, h = frame.clientHeight;
     const k = Math.min(w / QS.W, h / QS.H);
@@ -289,7 +289,7 @@
     ui.querySelector('[data-act=reset]').onclick = () => { t0 = Date.now(); paused = 0; pausedAt = 0; };
     ui.querySelector('[data-act=black]').onclick = () => { black = !black; sync.send({ type: 'black', on: black }); };
     ui.querySelector('[data-act=audience]').onclick = () => {
-      const w = window.open(baseURL() + '#audience&s=' + (player.idx + 1), 'qs-audience', 'popup,width=1280,height=760');
+      const w = window.open(baseURL() + '#audience&s=' + (player.idx + 1), 'qs-audience', `popup,width=${QS.W},height=${QS.H + 40}`);
       sync.add(w);
     };
     window.addEventListener('keydown', (e) => {
@@ -308,6 +308,8 @@
       <button class="primary">${QS.t('print.btn')}</button>
       <span>${QS.esc(QS.t('print.hint'))}</span>`;
     document.body.appendChild(bar);
+    // 纸张尺寸 = 画布尺寸（@page 里不能用 CSS 变量）
+    document.head.appendChild(QS.el('style', '', `@page { size: ${QS.W}px ${QS.H}px; margin: 0; }`));
     bar.querySelector('input').onchange = (e) => { location.hash = e.target.checked ? 'print&each' : 'print'; location.reload(); };
     bar.querySelector('button').onclick = () => window.print();
     deck.slides.forEach((s, i) => {
@@ -333,9 +335,14 @@
     }
     QS.migrate(deck);
     deck = QS.visibleDeck(deck); // 隐藏页不放映、不打印
-    if (document.fonts && document.fonts.load) {
-      await Promise.all([300, 400, 500, 600].map((w) => document.fonts.load(w + ' 24px "Plex SC"', '量子')).concat([document.fonts.load('500 24px "Futura ND Bundled"', 'PART 0123456789'), document.fonts.ready])).catch(() => {});
+    try {
+      await QS.useTheme(deck);
+    } catch (e) {
+      document.body.className = 'qs-page-player';
+      document.body.appendChild(QS.el('div', 'qs-all-hidden', QS.esc(e.message)));
+      return;
     }
+    await Promise.all([QS.loadThemeFonts(), document.fonts ? document.fonts.ready : null]).catch(() => {});
     document.title = (deck.meta && deck.meta.title) || QS.t('player.defaultTitle');
     document.documentElement.lang = QS.lang === 'zh' ? 'zh-CN' : 'en';
     const p = hashParams();

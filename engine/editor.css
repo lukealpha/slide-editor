@@ -64,7 +64,7 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 .ed-slide-item.hidden-slide .ed-thumb { opacity: 0.35; }
 .ed-hide-toggle { margin-top: 8px; }
 .ed-todo-dot { font-size: 10px; background: var(--accent); color: #fff; padding: 0 5px; border-radius: 2px; font-weight: 600; }
-.ed-thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; border: 1px solid var(--ui-line); pointer-events: none; }
+.ed-thumb { position: relative; width: 100%; aspect-ratio: var(--qs-aspect, 16 / 9); overflow: hidden; background: #fff; border: 1px solid var(--ui-line); pointer-events: none; }
 .ed-slide-add { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--ui-line); flex-wrap: wrap; }
 .ed-slide-add button { flex: 1; padding: 6px 4px; }
 
@@ -239,3 +239,5 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; 
 .ed-tl-meta code { font-size: 11px; padding: 0 3px; }
 .ed-subhead { font-size: 12px; font-weight: 600; color: var(--ui-ink); margin: 14px 0 8px; padding-top: 10px; border-top: 1px dashed var(--ui-line); }
 .ed-subhead:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.ed-theme-ro { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; background: #f4f4f4; border: 1px solid var(--ui-line); color: #393939; font-size: 13px; }
+.ed-theme-ro code { font-size: 12px; color: #6f6f6f; }

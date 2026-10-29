@@ -3,8 +3,7 @@
   'use strict';
   const QS = window.QS;
 
-  const ENGINE_JS = ['engine/i18n.js', 'engine/core.js', 'engine/circuit.js', 'engine/coverart.js', 'engine/player.js'];
-  const WEIGHTS = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'SemiBold']];
+  const ENGINE_JS = ['engine/i18n.js', 'engine/core.js', 'engine/circuit.js', 'engine/player.js'];
   // 除文稿内容外始终保留的字符：ASCII、常用标点、希腊字母、常用数学符号
   const EXTRA =
     ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~' +
@@ -42,15 +41,22 @@
     // TODO 标注（以及它们的图片附件）只属于编辑器，不进入导出文件；隐藏页整页去掉
     deck = JSON.parse(JSON.stringify(QS.visibleDeck(deck)));
     if (!deck.slides.length) throw new Error(QS.t('exp.allHidden'));
+    // 只打包这份幻灯片的主题；内容和主题对不上时不导出
+    const theme = QS.theme;
+    const issues = QS.themeIssues(deck, theme);
+    if (issues.length) throw new Error(QS.t('exp.themeIssues', { n: issues.length, first: issues[0] }));
+    const themeDir = 'themes/' + theme.id + '/';
+    const themeJS = [themeDir + 'theme.js'].concat((theme.scripts || []).map((f) => themeDir + f));
     for (const s of deck.slides) delete s.todos;
     const text = io.text, bytes = io.bytes, dataURL = io.dataURL;
     const animFiles = io.animationFiles().map((f) => 'animations/' + f);
 
     progress(QS.t('exp.readEngine'));
     const js = {};
-    for (const f of ['vendor/katex/katex.min.js'].concat(ENGINE_JS, animFiles)) js[f] = await text(f);
+    for (const f of ['vendor/katex/katex.min.js'].concat(ENGINE_JS, themeJS, animFiles)) js[f] = await text(f);
     let katexCss = await text('vendor/katex/katex.min.css');
-    let themeCss = await text('engine/theme.css');
+    const baseCss = await text('engine/base.css');
+    let themeCss = await text(themeDir + 'theme.css');
     const playerCss = await text('engine/player.css');
 
     progress(QS.t('exp.mathFonts'));
@@ -62,33 +68,38 @@
 
     progress(QS.t('exp.chars'));
     let chars = EXTRA + JSON.stringify(deck);
-    for (const f of ENGINE_JS.concat(animFiles)) chars += js[f];
+    for (const f of ENGINE_JS.concat(themeJS, animFiles)) chars += js[f];
     const uniq = Array.from(new Set(Array.from(chars))).join('');
 
     const wasm = await bytes('vendor/harfbuzz-subset.wasm');
+    // 主题的字体：subset 'text'（默认）按文稿和引擎用到的字符子集化，'ascii' 只留 ASCII；optional 的文件不存在就跳过
+    let ascii = '';
+    for (let i = 32; i < 127; i++) ascii += String.fromCharCode(i);
     let faces = '';
-    for (const [w, name] of WEIGHTS) {
-      progress(QS.t('exp.subset', { w: name, n: Array.from(uniq).length }));
-      const woff = await bytes(`vendor/fonts/IBMPlexSansSC-${name}.woff`);
-      const sub = await QS.fontSubset.subsetWoff(wasm, woff, uniq);
-      faces += `@font-face{font-family:'Plex SC';font-weight:${w};src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
-    }
-    // 章节编号在非 Mac 电脑上的后备字体：本机私有的 Futura ND（商业字体，只为自用内嵌 ASCII 子集；文件不存在就跳过）
-    try {
-      const fnd = await bytes('vendor/fonts/private/FuturaND-Medium.ttf');
-      let ascii = '';
-      for (let i = 32; i < 127; i++) ascii += String.fromCharCode(i);
-      progress(QS.t('exp.subsetFont', { name: 'Futura ND Medium', n: ascii.length }));
-      const sub = await QS.fontSubset.subsetWoff(wasm, fnd, ascii);
-      faces += `@font-face{font-family:'Futura ND Bundled';font-weight:500;src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
-    } catch (e) {
-      console.warn('Futura ND fallback not embedded:', e.message);
+    for (const f of theme.fonts || []) {
+      try {
+        const chars = f.subset === 'ascii' ? ascii : uniq;
+        const n = Array.from(chars).length;
+        progress(QS.t('exp.subsetFont', { name: f.label || f.family, n }));
+        const sub = await QS.fontSubset.subsetWoff(wasm, await bytes(f.file), chars);
+        faces += `@font-face{font-family:'${f.family}';font-weight:${f.weight || 400};${f.style ? `font-style:${f.style};` : ''}src:url(${await dataURL(sub, 'font/woff')}) format('woff');}\n`;
+      } catch (e) {
+        if (!f.optional) throw e;
+        console.warn(`${f.label || f.family} not embedded:`, e.message);
+      }
     }
     themeCss = themeCss.replace(/@font-face[^}]*\}\s*/g, '');
+    // 主题样式表里引用的其他文件（例如水印图片）路径相对于主题文件夹，内联成 data URL
+    for (const m of new Set(themeCss.match(/url\((?!['"]?data:)[^)]+\)/g) || [])) {
+      const rel = m.slice(4, -1).replace(/^['"]|['"]$/g, '');
+      const ext = (rel.split('.').pop() || '').toLowerCase();
+      themeCss = themeCss.split(m).join(`url(${await dataURL(await bytes(themeDir + rel), MIME[ext] || 'application/octet-stream')})`);
+    }
 
     progress(QS.t('exp.images'));
     const assets = {};
-    const paths = new Set((JSON.stringify(deck).match(/assets\/[^"\\]+/g) || []));
+    // 只认图片文件（讲稿等文字里偶尔出现的 assets/… 字样不算）
+    const paths = new Set((JSON.stringify(deck).match(/assets\/[^"\\]+?\.(?:png|jpe?g|gif|svg|webp)(?=["\\])/gi) || []));
     for (const p of paths) {
       try {
         const ext = (p.split('.').pop() || '').toLowerCase();
@@ -118,6 +129,7 @@ ${icon}<!-- Exported by the slide editor on ${new Date().toISOString()}. Double-
 <style>
 ${faces}
 ${katexCss}
+${baseCss}
 ${themeCss}
 ${playerCss}
 </style>

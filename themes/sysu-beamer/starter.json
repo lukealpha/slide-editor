@@ -1,0 +1,7 @@
+{
+  "meta": { "title": "Untitled presentation", "accent": "#333399", "shortTitle": "", "footAuthor": "", "footRight": "" },
+  "slides": [
+    { "id": "S-CVR", "type": "cover", "title": "Untitled presentation", "subtitle": "", "author": "", "institute": "中山大学", "date": "", "notes": "" },
+    { "id": "S-2ND", "type": "content", "title": "New slide", "section": "Section", "layout": "single", "split": 55, "notes": "", "blocks": [] }
+  ]
+}

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/* npm run check: validate deck.json — structure, IDs, KaTeX parsing, animation components and images */
+/* npm run check: validate deck.json — theme, structure, IDs, KaTeX parsing, animation components and images */
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { ROOT, SLIDE, resolve, load, animationFiles, readDeck } = require('./engine');
+const { ROOT, SLIDE, resolve, load, animationFiles, readDeck, useTheme } = require('./engine');
 
 const errors = [], warns = [];
 let deck;
@@ -16,6 +16,7 @@ try {
 const katex = require(path.join(ROOT, 'vendor/katex/katex.min.js'));
 const QS = load('engine/i18n.js', 'engine/core.js', 'engine/circuit.js');
 QS.migrate(deck);
+const theme = useTheme(deck);
 
 const animIds = new Set();
 for (const f of animationFiles()) {
@@ -42,13 +43,17 @@ function inline(s, where) {
   for (const m of String(s || '').matchAll(/\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g)) tex(m[1] !== undefined ? m[1] : m[2], m[1] !== undefined, where);
 }
 
-const TYPES = { cover: 1, section: 1, content: 1 };
+// 主题：内容里有主题不支持的页面类型、内容块、字号时报错（导出也会拒绝）；主题还可以有自己的检查
+if (!(deck.meta && deck.meta.theme)) warns.push(`meta.theme is not set; using the default theme ${theme.id}`);
+for (const e of QS.themeIssues(deck)) errors.push(e);
+if (theme.check) theme.check(deck, { error: (m) => errors.push(m), warn: (m) => warns.push(m) });
+const TEXT_KEYS = new Set(['title', 'notes']);
+for (const k of Object.values(theme.slideTypes)) for (const key of k.textKeys || []) TEXT_KEYS.add(key);
 const usedTodoFiles = new Set();
 (deck.slides || []).forEach((s, i) => {
   const w = `Slide ${i + 1} ${s.id || ''}`;
   checkId(s.id, 'S', w);
-  if (!TYPES[s.type]) errors.push(`${w}: unknown slide type ${s.type}`);
-  for (const k of ['title', 'titleAlt', 'subtitle', 'author', 'footer', 'notes']) inline(s[k], `${w} ${k}`);
+  for (const k of TEXT_KEYS) inline(s[k], `${w} ${k}`);
   for (const td of s.todos || []) {
     const tw = `${w} | ${td.id || '?'} TODO`;
     checkId(td.id, 'T', tw);
@@ -66,14 +71,19 @@ const usedTodoFiles = new Set();
     const bw = `${w} | ${b.id || '?'} ${b.type}`;
     checkId(b.id, 'B', bw);
     if (!QS.BLOCK_TYPES[b.type]) return errors.push(`${bw}: unknown block type`);
+    if (!theme.blocks.includes(b.type)) return;
     if (b.step !== undefined && !(Number.isInteger(b.step) && b.step >= 0)) errors.push(`${bw}: step must be a non-negative integer`);
     if (b.until !== undefined && !(Number.isInteger(b.until) && b.until > (b.step || 0))) errors.push(`${bw}: until must be an integer greater than step (${b.step || 0})`);
     if (b.reserve !== undefined && typeof b.reserve !== 'boolean') errors.push(`${bw}: reserve must be true or false`);
-    if (b.col !== undefined && b.col !== 'left' && b.col !== 'right') errors.push(`${bw}: col must be left/right`);
+    if (b.delay !== undefined && !(typeof b.delay === 'number' && b.delay >= 0)) errors.push(`${bw}: delay must be a non-negative number of milliseconds`);
+    if (b.col !== undefined && !['left', 'right', 'full'].includes(b.col)) errors.push(`${bw}: col must be left/right/full`);
     for (const k of ['text', 'items', 'body', 'label', 'caption']) inline(b[k], bw);
     if (b.type === 'formula') QS.splitSeq(b.latex).forEach((t) => tex(t, true, bw));
     if (b.type === 'table') {
       const rows = QS.tableRows(b.rows);
+      const ws = QS.tableWidths(b.widths);
+      if (b.widths && !ws.length) warns.push(`${bw}: widths "${b.widths}" has no positive numbers; ignored`);
+      if (ws.reduce((x, y) => x + y, 0) > 100.5) warns.push(`${bw}: column widths add up to more than 100%`);
       rows.forEach((r) => r.forEach((c) => inline(c, bw)));
       const n = new Set(rows.map((r) => r.length));
       if (n.size > 1) warns.push(`${bw}: rows have different numbers of cells (${[...n].join(', ')}); missing cells are left empty`);
@@ -95,11 +105,12 @@ const usedTodoFiles = new Set();
     if (b.type === 'anim') {
       if (!b.component) warns.push(`${bw}: no animation component selected`);
       else if (!animIds.has(b.component)) errors.push(`${bw}: animation component not found: ${b.component}`);
-      if (b.stageSteps !== undefined) {
-        const ss = b.stageSteps;
-        if (!Array.isArray(ss) || !ss.every(Number.isInteger)) errors.push(`${bw}: stageSteps must be an array of integers`);
-        else if (ss.some((v, i) => v <= (i ? ss[i - 1] : b.step || 0))) warns.push(`${bw}: stageSteps ${JSON.stringify(ss)} should increase strictly after step ${b.step || 0}; out-of-order entries are pushed later when played`);
-      }
+    }
+    if (b.stageSteps !== undefined) {
+      const ss = b.stageSteps;
+      if (b.type !== 'anim' && !(b.type === 'table' && b.stepwise)) warns.push(`${bw}: stageSteps only applies to animations and row-by-row tables; ignored`);
+      else if (!Array.isArray(ss) || !ss.every(Number.isInteger)) errors.push(`${bw}: stageSteps must be an array of integers`);
+      else if (ss.some((v, i) => v <= (i ? ss[i - 1] : b.step || 0))) warns.push(`${bw}: stageSteps ${JSON.stringify(ss)} should increase strictly after step ${b.step || 0}; out-of-order entries are pushed later when played`);
     }
     if (b.type === 'image') {
       if (!b.src) warns.push(`${bw}: no image selected`);
@@ -118,5 +129,5 @@ for (const f of orphans) warns.push(`unused TODO attachment (safe to delete): ${
 const n = (deck.slides || []).length;
 for (const e of errors) console.log('  ✗ ' + e);
 for (const e of warns) console.log('  · ' + e);
-console.log(`\n  ${path.relative(process.cwd(), SLIDE) || '.'}: ${n} slides, ${errors.length} error(s), ${warns.length} note(s).${errors.length ? '' : ' ✓'}`);
+console.log(`\n  ${path.relative(process.cwd(), SLIDE) || '.'} (theme ${theme.id}): ${n} slides, ${errors.length} error(s), ${warns.length} note(s).${errors.length ? '' : ' ✓'}`);
 process.exit(errors.length ? 1 : 0);

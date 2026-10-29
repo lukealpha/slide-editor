@@ -3,6 +3,8 @@
  *   npm run dev                      启动并自动打开浏览器（编辑 ./slide）
  *   npm run serve                    只启动，不打开浏览器
  *   npm run dev -- --slide <路径>     编辑其他位置的幻灯片文件夹
+ *   npm run dev -- --port <端口>      指定端口（默认 8765，被占用时依次往后试）
+ *   npm run dev -- --theme <主题>     新建幻灯片时用的主题（themes/ 下的文件夹名，默认 ibm-quantum；已有的幻灯片不受影响）
  * 编辑器自身的文件（index.html、engine/、vendor/…）从本目录提供；
  * deck.json、assets/、animations/、export/ 来自幻灯片文件夹。
  */
@@ -16,7 +18,14 @@ const { slideDir, ensureSlide } = require('./tools/slide');
 
 const ROOT = __dirname;
 const SLIDE = slideDir();
-const CREATED = ensureSlide(SLIDE);
+let ENSURED;
+try {
+  ENSURED = ensureSlide(SLIDE);
+} catch (e) {
+  console.error('  ✗ ' + e.message);
+  process.exit(1);
+}
+const CREATED = ENSURED.created;
 const DECK = path.join(SLIDE, 'deck.json');
 const ASSETS = path.join(SLIDE, 'assets');
 const EXPORT = path.join(SLIDE, 'export');
@@ -27,7 +36,7 @@ const GIT_LOG_LIMIT = 300;
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2',
+  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2', '.otf': 'font/otf', '.ttf': 'font/ttf',
   '.wasm': 'application/wasm', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
 };
 
@@ -219,7 +228,7 @@ function listen(port) {
     })
   );
   server.on('error', (e) => {
-    if (e.code === 'EADDRINUSE' && port < 8784) listen(port + 1);
+    if (e.code === 'EADDRINUSE' && port < 8784 && portArg < 0) listen(port + 1);
     else {
       console.error('Could not start the server:', e.message);
       process.exit(1);
@@ -229,9 +238,11 @@ function listen(port) {
     const url = `http://127.0.0.1:${port}/`;
     console.log(`\n  Slide editor running at ${url}`);
     console.log(`  Slide folder: ${SLIDE}${CREATED ? '  (new — created a blank deck)' : ''}`);
+    if (ENSURED.note) console.log(`  · ${ENSURED.note}`);
     console.log(`  Press Ctrl+C to stop.\n`);
     if (!process.argv.includes('--no-open')) openBrowser(url);
   });
 }
 
-listen(8765);
+const portArg = process.argv.indexOf('--port');
+listen(portArg > 0 ? +process.argv[portArg + 1] || 8765 : 8765);
